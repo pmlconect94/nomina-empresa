@@ -1,6 +1,0 @@
-node_modules
-build
-.env
-.env.local
-supabase
-supabase_update.sql

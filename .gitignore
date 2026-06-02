@@ -3,6 +3,12 @@
 
 # Build
 /build
+/dist
+
+# Artefactos de TypeScript / Vite (generados)
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
 
 # Variables de entorno (contienen llaves; recrear con `vercel env pull`)
 .env

@@ -9,10 +9,15 @@ deducciones, neto a pagar y la distribución del pago (depósito banco / vales /
 
 ## Stack
 
-- **Frontend:** React 18 (Create React App, `react-scripts`). Sin router: navegación por estado.
+- **Frontend:** React 18 + **Vite** + **TypeScript** + **Tailwind** + React Router + Framer Motion + Lucide + Sonner.
+  Mismo stack y design system que el **CRM PML** (para integrarlo después como módulo). Build: `tsc -b && vite build` → `dist/`.
 - **Backend:** Supabase (Postgres + Auth + RLS + Edge Functions en Deno).
-- **Hosting:** Vercel.
-- Versión: `2.0.0`.
+- **Hosting:** Vercel (framework `vite`, ver `vercel.json`).
+- Versión: `3.0.0`.
+
+> Migrado desde Create React App (v2) a Vite/TS/Tailwind el 2026-06-02 (fase F0).
+> El design system (tokens, componentes `.btn/.card/.field-input/.tbl/.badge/.kpi`, shell
+> sidebar+topbar) se replicó de `CRM PML`. Ver `src/index.css`.
 
 ## Infraestructura (ver también `.claude` memory)
 
@@ -30,13 +35,13 @@ deducciones, neto a pagar y la distribución del pago (depósito banco / vales /
 
 ## Variables de entorno (`.env` / Vercel)
 
-Solo estas tres. **Nunca** poner secretos del lado servidor aquí: cualquier `REACT_APP_*`
-se hornea en el bundle JS público.
+Vite expone solo variables con prefijo `VITE_` (se hornean en el bundle público).
+**Nunca** poner secretos de servidor (service_role_key) aquí.
 
 ```
-REACT_APP_SUPABASE_URL=https://xjbhfeqcjjqyjkvdbyxy.supabase.co
-REACT_APP_SUPABASE_ANON_KEY=<anon key — pública por diseño, protegida por RLS>
-REACT_APP_MASTER_PIN=<pin para desbloquear nóminas timbradas>
+VITE_SUPABASE_URL=https://xjbhfeqcjjqyjkvdbyxy.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon key — pública por diseño, protegida por RLS>
+VITE_MASTER_PIN=<pin para desbloquear nóminas / sueldos>
 ```
 
 ## Repositorio (GitHub)
@@ -49,7 +54,8 @@ REACT_APP_MASTER_PIN=<pin para desbloquear nóminas timbradas>
 
 ```bash
 npm install
-npm start                 # desarrollo local (lee .env)
+npm run dev               # desarrollo local (Vite, http://localhost:5173)
+npm run build             # tsc -b && vite build → dist/
 
 # Despliegue a producción (Vercel CLI, desde esta carpeta):
 npx vercel deploy --prod --yes
@@ -140,16 +146,41 @@ Función helper `get_user_rol()` usada por las políticas.
 - ✅ Funcionando en producción tras recrear la BD y reconfigurar Vercel (2026-06-01).
 - ⚠️ La BD es nueva → **tablas vacías**. Falta capturar empleados y nóminas (o importar respaldo).
 
-## Pendientes / mejoras propuestas
+## Revisión de cálculos (hallazgos 2026-06-02, pendientes de validar con contabilidad)
 
-1. ~~Sincronizar el código con GitHub.~~ ✅ Hecho (repo `pmlconect94/nomina-empresa`).
-2. ~~Importar/recapturar datos de empleados.~~ ✅ Hecho (32 empleados importados).
-3. **Capturar sueldos e infonavit** de cada empleado (quedaron en $0 tras el import).
-4. **Nóminas quincenales:** el cálculo asume semana lunes–domingo; en quincenal las
-   etiquetas de día y el "séptimo día" salen mal.
-5. **Comedor:** guardar los días en su propia columna en vez de deducirlos del monto.
-6. **Recibo individual imprimible** por empleado.
-7. **Endurecer el desbloqueo de nóminas:** mover el PIN a verificación del servidor.
+Lógica en `lib/supabase.js → calcularNomina`. Esquema **dual**: `sd_fiscal` (lo declarado a IMSS)
+y `sd_real` (lo que realmente se paga). Hallazgos a revisar antes de hacer pruebas:
+
+1. **Retardos sobre-cobrados:** `retardo_min/60 * dDR` multiplica horas por el salario **diario**,
+   no por el por-hora. Debería ser `horas * (dDR/8)`. Hoy un retardo cuesta ~8× de más.
+2. **Columna "Faltas" cosmética:** en `TabResumen` muestra `diasF * dDR` en negativo, pero esa
+   resta **no** se aplica al neto (las faltas ya no se pagan porque solo se paga 'A'). Confunde.
+3. **Quincenal con matemática semanal:** `sd/7` y séptimo `min(días,6)/6` son de semana. En
+   quincenal el 7mo día y etiquetas de día salen mal.
+4. **Prima vacacional fiscal** se calcula (`primaFiscal`) pero no se usa; solo entra la efectiva.
+5. **SDI (Salario Diario Integrado)** aún no existe; se introduce con el modelo de movimientos.
+
+## Roadmap RH / Nómina (propuesto, por fases)
+
+- **F0 — Rediseño visual tipo CRM:** portar tokens y componentes del CRM (`CRM PML`) a este app
+  (sidebar navy + topbar, paleta ink/navy/blue, Geist, `.btn/.card/.field-input/.tbl/.badge/.kpi`).
+- **F1 — Catálogo de empleados:** formulario casi pantalla completa; **ocultar sueldos/infonavit**
+  de la vista; **toggle "Alta IMSS"** (apagado = todo efectivo; prendido = transferencia + vales);
+  filtros **Activos / Bajas / Todos**; empleados dados de baja en gris.
+- **F2 — Modelo de sueldos por movimientos + botón SUELDO:** tabla de movimientos
+  (Alta / Modificación de sueldo / Baja) con Fecha inicio, Fecha fin, Sueldo diario y SDI;
+  el último vigente es el que calcula. Botón **SUELDO** protegido con contraseña. Dar de baja desde ahí.
+- **F3 — Nóminas por esquema:** al crear nómina semanal/quincenal, incluir solo los empleados
+  de ese esquema (`esquema_pago`). Arreglar cálculo quincenal.
+- **F4 — Vacaciones:** cálculo por antigüedad (LFT 2023: 12 días el 1er año, +2 hasta 20, luego
+  +2 cada 5 años); saldo por empleado; al capturar V en una nómina se descuenta del saldo; prima 25%.
+- **F5 — Dashboard KPIs:** faltas, asistencias, vacaciones, suspensiones, permisos c/ y s/ goce,
+  tiempo x tiempo, horas extra.
+- **F6 — Revisión de cálculos + pruebas:** aplicar fixes (retardos, faltas, quincenal) y validar.
+
+### Ideas extra propuestas (a evaluar)
+Aguinaldo (15 días LFT), finiquito/liquidación, recibo individual imprimible, reporte de
+dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
 
 ---
 
