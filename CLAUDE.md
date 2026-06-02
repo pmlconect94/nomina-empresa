@@ -19,19 +19,42 @@ deducciones, neto a pagar y la distribución del pago (depósito banco / vales /
 > El design system (tokens, componentes `.btn/.card/.field-input/.tbl/.badge/.kpi`, shell
 > sidebar+topbar) se replicó de `CRM PML`. Ver `src/index.css`.
 
-## Infraestructura (ver también `.claude` memory)
+## Servicios, cuentas y nombres de proyecto (LEER PRIMERO al cambiar de equipo)
 
-| Pieza | Valor |
-|------|-------|
-| Proyecto Supabase | **crm-pml** — `xjbhfeqcjjqyjkvdbyxy` (us-east-1). **Compartido** con el sistema de almacén/WMS. |
-| URL Supabase | `https://xjbhfeqcjjqyjkvdbyxy.supabase.co` |
-| Proyecto Vercel | **nomina-empresa** — team `ddlpml2-6030s-projects` |
-| URL producción | https://nomina-empresa.vercel.app |
-| Edge Function | `admin-users` (crear / borrar / cambiar contraseña de usuarios) |
-| Admin inicial | `ddl.pml2@gmail.com` (rol `admin`) |
+Tres servicios. Aquí el **nombre exacto del proyecto en cada uno** y **con qué cuenta** se entra,
+para que el Claude Code del otro equipo sepa exactamente dónde está todo.
 
-> El proyecto Supabase original (`jcbhdnuypilxzxflwcah`) fue **borrado**; por eso el login
-> dejó de funcionar. Se recreó todo el esquema de nómina dentro de `crm-pml`.
+### 1. GitHub (código)
+- **Cuenta / usuario:** `pmlconect94`
+- **Nombre del repositorio:** **`nomina-empresa`**
+- **URL:** https://github.com/pmlconect94/nomina-empresa  — **repositorio PÚBLICO**
+- Es donde vive TODO el código. `git clone` desde ahí.
+- Nota: los commits se autoran como `ventas.lizarraga2@gmail.com` (config local de git de este equipo).
+
+### 2. Supabase (base de datos + auth + edge functions)
+- **Cuenta:** la del dueño (organización personal del usuario).
+- **Nombre del proyecto:** **`crm-pml`** — ref `xjbhfeqcjjqyjkvdbyxy` (región us-east-1)
+- **URL:** `https://xjbhfeqcjjqyjkvdbyxy.supabase.co`
+- ⚠️ Este proyecto está **COMPARTIDO** con el sistema de almacén/WMS (tablas `cells`, `pallets`,
+  `catalog`, `movimientos`, etc.). **No tocar** esas tablas. Las de nómina están listadas en
+  "Modelo de datos" más abajo.
+- **Edge Function:** `admin-users` (crear / borrar / cambiar contraseña de usuarios).
+- En el otro equipo: tener el **MCP de Supabase** conectado a esta cuenta (o el access token),
+  o usar el dashboard de Supabase con la cuenta del usuario.
+- El proyecto Supabase original (`jcbhdnuypilxzxflwcah`) fue **borrado**; todo se recreó en `crm-pml`.
+
+### 3. Vercel (hosting / despliegue)
+- **Cuenta / usuario:** `ddlpml2-6030`  ·  **Team / scope:** `ddlpml2-6030s-projects`
+- **Nombre del proyecto:** **`nomina-empresa`**
+- **URL producción:** https://nomina-empresa.vercel.app
+- **Plan:** Hobby (gratis). Framework detectado: **Vite** (ver `vercel.json`).
+- **Auto-deploy:** cada push a `main` del repo público dispara un deploy automático.
+- En el otro equipo: `npx vercel login` con la cuenta `ddlpml2-6030` para poder desplegar/reasignar dominio.
+- ⚠️ A veces el dominio corto `nomina-empresa.vercel.app` no se reasigna solo al último deploy;
+  reasignar con `npx vercel alias set <url-del-deploy> nomina-empresa.vercel.app`.
+
+### Login de la aplicación
+- Admin: **`ddl.pml2@gmail.com`** (rol `admin`). Contraseña: la que ya configuró el usuario.
 
 ## Variables de entorno (`.env` / Vercel)
 
@@ -114,10 +137,15 @@ pages/
 lib/supabase.js             cliente Supabase + constantes + lógica de cálculo
 ```
 
-## Modelo de datos (Postgres)
+## Modelo de datos (Postgres, schema `public` del proyecto Supabase `crm-pml`)
 
-`empleados`, `semanas`, `nominas`, `asistencias`, `viajes`, `usuarios_roles`,
-`prestamos`, `prestamo_descuentos`. Todas con RLS:
+Tablas de **nómina** (las del WMS NO se tocan): `empleados` (ficha completa + `alta_imss`,
+`sd_real`/`sd_fiscal` semanal-equiv, `vales`, `prevision_social`, `infonavit`), `semanas`,
+`nominas`, `asistencias`, `viajes`, `usuarios_roles`, `prestamos`, `prestamo_descuentos`,
+`empleado_sueldo_movimientos` (alta/modif/baja con vigencias, sueldo periodo/diario real y
+fiscal, SDI, vales, previsión — el último vigente alimenta el cálculo), `empleado_descuentos`
+(Infonavit/Fonacot/etc. con historial), `empleado_sueldo_historial` (legado), `comedor_registro`
+(comedor por día lun-vie, para reporte mensual), `nomina_descuento_producto`, `nomina_bono`. Todas con RLS:
 lectura = autenticados; escritura = `admin`/`editor` (`usuarios_roles`: escritura solo `admin`).
 Función helper `get_user_rol()` usada por las políticas.
 
