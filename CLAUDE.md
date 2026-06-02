@@ -241,4 +241,17 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
 - Formulario de empleado casi a pantalla completa (modal 96vw / máx 1180px).
 - Filtros Activos / Bajas / Todos (bajas se muestran en gris).
 
+### 2026-06-02 — F2: Sueldos por movimientos + botón SUELDO
+- Nueva tabla `empleado_sueldo_movimientos` (tipo alta/modificacion/baja, fecha_inicio,
+  fecha_fin, sueldo_diario_real, sueldo_diario_fiscal, sdi, factor_integracion, nota, usuario).
+  El **último vigente** (fecha_fin NULL, tipo ≠ baja) es el que calcula.
+- Botón **SUELDO** por empleado, protegido con **contraseña** (re-autenticación del usuario
+  logueado vía `reauth` en `lib/auth`). Pantalla `SueldoModal` con resumen (real/fiscal/SDI),
+  historial de movimientos, alta/modificación y **dar de baja**.
+- **SDI** = sueldo diario fiscal × factor de integración IMSS `(365 + 15 + díasVac×0.25)/365`
+  (helpers en `lib/calc.ts`: `factorIntegracionSDI`, `calcSDI`, `diasVacacionesLFT`, `antiguedadAnios`).
+- **Puente con el cálculo actual:** al guardar un movimiento se sincroniza
+  `empleados.sd_real` y `sd_fiscal` (= sueldo diario × 7), para que `calcularNomina` (semanal)
+  siga funcionando sin cambios. La refactorización del cálculo a base diaria queda para F6.
+
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->

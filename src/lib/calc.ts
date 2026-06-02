@@ -98,9 +98,22 @@ export function antiguedadAnios(fechaIngreso?: string | null): number {
 
 // Días de vacaciones por año cumplido según LFT (reforma 2023).
 export function diasVacacionesLFT(aniosCumplidos: number): number {
-  if (aniosCumplidos < 1) return 0;
+  if (aniosCumplidos < 1) return 12; // tabla nueva: 12 desde el primer año
   if (aniosCumplidos === 1) return 12;
   if (aniosCumplidos <= 5) return 12 + (aniosCumplidos - 1) * 2; // 14,16,18,20
   // a partir del 6º: +2 por cada bloque de 5 años
   return 20 + Math.floor((aniosCumplidos - 1) / 5) * 2;
+}
+
+// Factor de integración IMSS: (365 + aguinaldo(15) + díasVac*primaVac(25%)) / 365.
+export function factorIntegracionSDI(aniosCumplidos: number): number {
+  const diasVac = diasVacacionesLFT(aniosCumplidos);
+  const aguinaldo = 15;
+  const primaVac = 0.25;
+  return Math.round(((365 + aguinaldo + diasVac * primaVac) / 365) * 10000) / 10000;
+}
+
+// SDI a partir del sueldo diario fiscal y la antigüedad.
+export function calcSDI(sueldoDiarioFiscal: number, aniosCumplidos: number): number {
+  return Math.round(sueldoDiarioFiscal * factorIntegracionSDI(aniosCumplidos) * 100) / 100;
 }

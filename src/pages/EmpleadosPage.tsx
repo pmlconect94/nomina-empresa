@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { calcEdad } from '@/lib/format';
 import { Icon } from '@/components/Icon';
 import { PageEnter } from '@/components/motion';
+import { SueldoModal } from './SueldoModal';
 
 const AREAS = ['Administración', 'Cobranza', 'Contabilidad', 'Logistica/Almacen', 'Recursos Humanos', 'Ventas'];
 const ESQUEMAS = ['Semanal', 'Quincenal'];
@@ -14,8 +15,9 @@ const ESCOLARIDAD = ['Primaria', 'Secundaria', 'Preparatoria', 'Licenciatura', '
 const TURNOS = [1, 2, 3];
 
 export function EmpleadosPage() {
-  const { user } = useAuth();
+  const { user, reauth } = useAuth();
   const canEdit = user?.rol === 'admin';
+  const canSueldo = user?.rol === 'admin' || user?.rol === 'editor';
   const [empleados, setEmpleados] = useState<any[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState<'activos' | 'bajas' | 'todos'>('activos');
@@ -23,6 +25,20 @@ export function EmpleadosPage() {
   const [nuevo, setNuevo] = useState(false);
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
+  // Candado de Sueldo
+  const [gateEmp, setGateEmp] = useState<any>(null);   // empleado pendiente de desbloquear
+  const [gatePass, setGatePass] = useState('');
+  const [gateBusy, setGateBusy] = useState(false);
+  const [sueldoEmp, setSueldoEmp] = useState<any>(null); // empleado desbloqueado (pantalla SUELDO)
+
+  async function abrirSueldo() {
+    if (!gatePass) return;
+    setGateBusy(true);
+    const ok = await reauth(gatePass);
+    setGateBusy(false);
+    if (!ok) { toast.error('Contraseña incorrecta'); setGatePass(''); return; }
+    setSueldoEmp(gateEmp); setGateEmp(null); setGatePass('');
+  }
 
   useEffect(() => { fetchEmpleados(); }, []);
   async function fetchEmpleados() {
@@ -140,6 +156,7 @@ export function EmpleadosPage() {
                 <td><span className={`badge ${e.activo ? 'badge-green' : 'badge-gray'}`}><span className="dot" />{e.activo ? 'Activo' : 'Baja'}</span></td>
                 <td>
                   <div className="hstack" style={{ gap: 4, justifyContent: 'flex-end' }}>
+                    {canSueldo && <button className="btn btn-outline btn-sm" onClick={() => { setGateEmp(e); setGatePass(''); }} title="Sueldo (protegido)"><Icon name="lock" size={13} /> Sueldo</button>}
                     {canEdit && <button className="btn btn-ghost btn-sm" onClick={() => abrirEdicion(e)} title="Editar"><Icon name="edit" size={14} /></button>}
                     {canEdit && <button className="btn btn-ghost btn-sm" onClick={() => toggleActivo(e)} title={e.activo ? 'Dar de baja' : 'Reactivar'}>{e.activo ? 'Baja' : 'Alta'}</button>}
                   </div>
@@ -244,6 +261,31 @@ export function EmpleadosPage() {
           </div>
         </div>
       )}
+
+      {/* Candado de contraseña para abrir Sueldo */}
+      {gateEmp && (
+        <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && setGateEmp(null)}>
+          <div className="modal page-enter" style={{ maxWidth: 400 }}>
+            <div className="modal-header">
+              <h3 className="modal-title"><Icon name="lock" size={15} /> Acceso a sueldos</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setGateEmp(null)}><Icon name="x" size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <p className="muted text-sm" style={{ marginTop: 0 }}>Confirma tu contraseña para ver y editar el sueldo de <strong>{gateEmp.nombre}</strong>.</p>
+              <label className="field-label">Usuario</label>
+              <input className="field-input" value={user?.email || ''} disabled style={{ marginBottom: 12 }} />
+              <label className="field-label">Contraseña</label>
+              <input className="field-input" type="password" autoFocus value={gatePass} placeholder="Tu contraseña" onChange={(e) => setGatePass(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && abrirSueldo()} />
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setGateEmp(null)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={abrirSueldo} disabled={gateBusy || !gatePass}>{gateBusy ? 'Verificando…' : 'Entrar'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {sueldoEmp && <SueldoModal empleado={sueldoEmp} onClose={() => setSueldoEmp(null)} onChanged={fetchEmpleados} />}
     </PageEnter>
   );
 }
