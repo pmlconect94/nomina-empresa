@@ -72,17 +72,15 @@ git clone https://github.com/pmlconect94/nomina-empresa.git
 cd nomina-empresa
 npm install
 
-# Recrear el .env (NO está en git). Opción A — bajarlo de Vercel:
+# Recrear el .env (NO está en git). Bajarlo de Vercel:
 npx vercel link            # elegir team ddlpml2-6030s-projects / proyecto nomina-empresa
-npx vercel env pull .env   # crea .env con las variables de producción
+npx vercel env pull .env   # crea .env con VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_MASTER_PIN
 
-# Opción B — crearlo a mano con estas 3 variables:
-#   REACT_APP_SUPABASE_URL=https://xjbhfeqcjjqyjkvdbyxy.supabase.co
-#   REACT_APP_SUPABASE_ANON_KEY=<anon key del proyecto crm-pml>
-#   REACT_APP_MASTER_PIN=1424798
-
-npm start
+npm run dev
 ```
+
+> El `.env` (con la anon key y el PIN) se obtiene de Vercel con `vercel env pull`.
+> No se guardan valores reales en este repo (es público).
 
 ---
 
