@@ -162,11 +162,12 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
 
         <div className="modal-body">
           {/* Resumen del vigente */}
-          <div className="grid" style={{ marginBottom: 16, gridTemplateColumns: 'repeat(5,1fr)' }}>
+          <div className="grid" style={{ marginBottom: 16, gridTemplateColumns: 'repeat(6,1fr)' }}>
             <div className="kpi"><span className="kpi-label">Sueldo {periodoAdj} real</span><span className="kpi-value">{vigente ? fmt(vigente.sueldo_periodo_real) : '—'}</span></div>
             <div className="kpi"><span className="kpi-label">Sueldo {periodoAdj} fiscal</span><span className="kpi-value">{vigente ? fmt(vigente.sueldo_periodo_fiscal) : '—'}</span></div>
             <div className="kpi"><span className="kpi-label">Diario (÷{divisor})</span><span className="kpi-value">{vigente ? fmt(vigente.sueldo_diario_real) : '—'}</span></div>
             <div className="kpi"><span className="kpi-label">SDI</span><span className="kpi-value blue">{vigente ? fmt(vigente.sdi) : '—'}</span></div>
+            <div className="kpi"><span className="kpi-label">Vales despensa</span><span className="kpi-value orange">{vigente ? fmt(vigente.vales) : '—'}</span></div>
             <div className="kpi"><span className="kpi-label">Estado</span><span className="kpi-value">{dadoBaja ? <span className="neg">Baja</span> : vigente ? <span className="pos">Vigente</span> : '—'}</span></div>
           </div>
 

@@ -42,9 +42,11 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   const divisorPeriodo = tipo === 'quincenal' ? 15 : 7;
   const sueldoFiscalPeriodo = dDF * divisorPeriodo;
   const sueldoRealPeriodo = dDR * divisorPeriodo;
+  // Sin Alta IMSS: no hay parte fiscal (todo se paga en efectivo).
+  const altaImss = empleado.alta_imss === true;
   // Vales y previsión: si se capturaron en el sueldo se usan; si no, 10% del fiscal del periodo.
-  const vales = (empleado.vales || 0) > 0 ? empleado.vales : sueldoFiscalPeriodo * 0.1;
-  const prevSocial = (empleado.prevision_social || 0) > 0 ? empleado.prevision_social : sueldoFiscalPeriodo * 0.1;
+  const vales = !altaImss ? 0 : ((empleado.vales || 0) > 0 ? empleado.vales : sueldoFiscalPeriodo * 0.1);
+  const prevSocial = !altaImss ? 0 : ((empleado.prevision_social || 0) > 0 ? empleado.prevision_social : sueldoFiscalPeriodo * 0.1);
 
   const dias = asistencias || [];
   const diasA = dias.filter((d) => d.codigo === 'A').length;
@@ -76,12 +78,13 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   const totalDed = infonavit + comedor + retardoMonto + prestDesc + (descuentoProducto || 0);
 
   const neto = totalPerc - totalDed;
-  const deposito = parseFloat(nomina?.deposito_total || 0);
-  const depositoBanco = Math.max(0, deposito - vales);
-  const efectivo = Math.max(0, neto - deposito);
+  // Distribución del pago. Sin Alta IMSS: todo en efectivo (sin depósito ni vales).
+  const deposito = altaImss ? parseFloat(nomina?.deposito_total || 0) : 0;
+  const depositoBanco = altaImss ? Math.max(0, deposito - vales) : 0;
+  const efectivo = altaImss ? Math.max(0, neto - deposito) : neto;
 
   return {
-    dDR, dDF, vales, prevSocial, sueldoFiscalPeriodo, sueldoRealPeriodo,
+    dDR, dDF, vales, prevSocial, sueldoFiscalPeriodo, sueldoRealPeriodo, altaImss,
     diasA, diasCuentan, diasV, diasF, totalTEHrs, totalRetHrs,
     asistMonto, septimo, te, primaFiscal, primaEfectivo,
     incentivos, retardoMonto, prestDesc, descuentoProducto: descuentoProducto || 0, bono: bono || 0,
