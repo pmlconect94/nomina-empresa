@@ -300,4 +300,13 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
 - **Recibo / tarjeta de nómina:** clic en un empleado del Resumen abre el desglose completo
   (percepciones, deducciones, neto, distribución) con botón Imprimir.
 
+### 2026-06-02 — Sueldo capturado por periodo (precisión)
+- En la pantalla SUELDO ahora se captura el **sueldo del periodo**: "Sueldo quincenal real/fiscal"
+  (quincenales) o "Sueldo semanal real/fiscal" (semanales). El **diario** se deriva dividiendo
+  entre **15** (quincena) o **7** (semana), con 4 decimales de precisión.
+- Tabla `empleado_sueldo_movimientos`: nuevas columnas `sueldo_periodo_real/fiscal`; los diarios
+  y SDI pasan a `numeric(12,4)`; `empleados.sd_real/sd_fiscal` también a `numeric(12,4)`.
+- El cálculo sigue usando el semanal-equivalente (`diario × 7`); el SDI se calcula sobre el
+  diario fiscal. Esto evita el problema de decimales al capturar diarios "feos".
+
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->

@@ -24,10 +24,14 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
 
   const antig = antiguedadAnios(empleado.fecha_ingreso);
   const factor = factorIntegracionSDI(antig);
-  const periodo = empleado.esquema_pago === 'Quincenal' ? 'quincena' : 'semana';
+  const esQuincenal = empleado.esquema_pago === 'Quincenal';
+  const periodo = esQuincenal ? 'quincena' : 'semana';
+  const periodoAdj = esQuincenal ? 'quincenal' : 'semanal';
+  const divisor = esQuincenal ? 15 : 7;
+  const r4 = (x: number) => Math.round(x * 10000) / 10000;
 
   const hoy = useMemo(() => toISO(new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000)), []);
-  const [form, setForm] = useState<any>({ tipo: 'modificacion', fecha_inicio: hoy, sueldo_diario_real: '', sueldo_diario_fiscal: '', sdi: '', nota: '' });
+  const [form, setForm] = useState<any>({ tipo: 'modificacion', fecha_inicio: hoy, periodo_real: '', periodo_fiscal: '', sdi: '', nota: '' });
 
   useEffect(() => { fetchMovs(); fetchDescs(); }, []);
   async function fetchMovs() {
@@ -81,39 +85,45 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
     setForm({
       tipo: esAlta ? 'alta' : 'modificacion',
       fecha_inicio: hoy,
-      sueldo_diario_real: vigente?.sueldo_diario_real || '',
-      sueldo_diario_fiscal: vigente?.sueldo_diario_fiscal || '',
+      periodo_real: vigente?.sueldo_periodo_real || '',
+      periodo_fiscal: vigente?.sueldo_periodo_fiscal || '',
       sdi: vigente?.sdi || '',
       nota: '',
     });
     setShowForm(true);
   }
 
-  const setFiscal = (v: string) => {
-    const fiscal = parseFloat(v) || 0;
-    setForm((p: any) => ({ ...p, sueldo_diario_fiscal: v, sdi: fiscal > 0 ? calcSDI(fiscal, antig) : '' }));
+  // Al capturar el sueldo fiscal del periodo, recalcula el SDI (sobre el diario fiscal).
+  const setFiscalP = (v: string) => {
+    const fp = parseFloat(v) || 0;
+    setForm((p: any) => ({ ...p, periodo_fiscal: v, sdi: fp > 0 ? r4(calcSDI(fp / divisor, antig)) : '' }));
   };
 
   async function guardar() {
-    const real = parseFloat(form.sueldo_diario_real) || 0;
-    const fiscal = parseFloat(form.sueldo_diario_fiscal) || 0;
-    const sdi = parseFloat(form.sdi) || 0;
-    if (real <= 0 && fiscal <= 0) { toast.error('Captura al menos un sueldo diario'); return; }
+    const periodoReal = parseFloat(form.periodo_real) || 0;
+    const periodoFiscal = parseFloat(form.periodo_fiscal) || 0;
+    if (periodoReal <= 0 && periodoFiscal <= 0) { toast.error(`Captura al menos un sueldo ${periodoAdj}`); return; }
     if (!form.fecha_inicio) { toast.error('Falta la fecha de inicio'); return; }
     setSaving(true);
+
+    const dailyReal = r4(periodoReal / divisor);
+    const dailyFiscal = r4(periodoFiscal / divisor);
+    const sdi = parseFloat(form.sdi) || r4(calcSDI(dailyFiscal, antig));
 
     // Cerrar la vigencia anterior en la fecha de inicio del nuevo movimiento.
     if (vigente) await supabase.from('empleado_sueldo_movimientos').update({ fecha_fin: form.fecha_inicio }).eq('id', vigente.id);
 
     const { error } = await supabase.from('empleado_sueldo_movimientos').insert({
       empleado_id: empleado.id, tipo: form.tipo, fecha_inicio: form.fecha_inicio, fecha_fin: null,
-      sueldo_diario_real: real, sueldo_diario_fiscal: fiscal, sdi, factor_integracion: factor,
+      sueldo_periodo_real: periodoReal, sueldo_periodo_fiscal: periodoFiscal,
+      sueldo_diario_real: dailyReal, sueldo_diario_fiscal: dailyFiscal, sdi, factor_integracion: factor,
       nota: form.nota.trim() || null, changed_by: user?.id, changed_by_nombre: user?.nombre,
     });
     if (error) { toast.error(error.message); setSaving(false); return; }
 
-    // Sincroniza el sueldo SEMANAL en empleados (= diario × 7) para que el cálculo lo use.
-    await supabase.from('empleados').update({ sd_real: Math.round(real * 7 * 100) / 100, sd_fiscal: Math.round(fiscal * 7 * 100) / 100, activo: true }).eq('id', empleado.id);
+    // El cálculo usa el sueldo SEMANAL-equivalente (diario × 7). El diario sale de dividir
+    // el sueldo del periodo entre 15 (quincena) o 7 (semana).
+    await supabase.from('empleados').update({ sd_real: r4(dailyReal * 7), sd_fiscal: r4(dailyFiscal * 7), activo: true }).eq('id', empleado.id);
 
     toast.success('Movimiento registrado');
     setShowForm(false); setSaving(false); fetchMovs(); onChanged();
@@ -146,10 +156,11 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
 
         <div className="modal-body">
           {/* Resumen del vigente */}
-          <div className="grid grid-4" style={{ marginBottom: 16 }}>
-            <div className="kpi"><span className="kpi-label">Sueldo diario real</span><span className="kpi-value">{vigente ? fmt(vigente.sueldo_diario_real) : '—'}</span></div>
-            <div className="kpi"><span className="kpi-label">Sueldo diario fiscal</span><span className="kpi-value">{vigente ? fmt(vigente.sueldo_diario_fiscal) : '—'}</span></div>
-            <div className="kpi"><span className="kpi-label">SDI vigente</span><span className="kpi-value blue">{vigente ? fmt(vigente.sdi) : '—'}</span></div>
+          <div className="grid" style={{ marginBottom: 16, gridTemplateColumns: 'repeat(5,1fr)' }}>
+            <div className="kpi"><span className="kpi-label">Sueldo {periodoAdj} real</span><span className="kpi-value">{vigente ? fmt(vigente.sueldo_periodo_real) : '—'}</span></div>
+            <div className="kpi"><span className="kpi-label">Sueldo {periodoAdj} fiscal</span><span className="kpi-value">{vigente ? fmt(vigente.sueldo_periodo_fiscal) : '—'}</span></div>
+            <div className="kpi"><span className="kpi-label">Diario (÷{divisor})</span><span className="kpi-value">{vigente ? fmt(vigente.sueldo_diario_real) : '—'}</span></div>
+            <div className="kpi"><span className="kpi-label">SDI</span><span className="kpi-value blue">{vigente ? fmt(vigente.sdi) : '—'}</span></div>
             <div className="kpi"><span className="kpi-label">Estado</span><span className="kpi-value">{dadoBaja ? <span className="neg">Baja</span> : vigente ? <span className="pos">Vigente</span> : '—'}</span></div>
           </div>
 
@@ -165,7 +176,7 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
 
           <div className="card tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>Tipo</th><th>Inicio</th><th>Fin</th><th className="right">S. diario real</th><th className="right">S. diario fiscal</th><th className="right">SDI</th><th>Nota</th><th>Usuario</th></tr></thead>
+              <thead><tr><th>Tipo</th><th>Inicio</th><th>Fin</th><th className="right">{periodoAdj} real</th><th className="right">{periodoAdj} fiscal</th><th className="right">Diario</th><th className="right">SDI</th><th>Nota</th><th>Usuario</th></tr></thead>
               <tbody>
                 {loading && <tr><td colSpan={8}><div className="empty"><span className="spinner" /></div></td></tr>}
                 {!loading && movs.length === 0 && <tr><td colSpan={8}><div className="empty"><div className="empty-title">Sin movimientos</div><p className="muted">Captura el alta de sueldo para empezar.</p></div></td></tr>}
@@ -174,8 +185,9 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
                     <td><span className={`badge ${TIPO_BADGE[m.tipo]}`}>{TIPO_LABEL[m.tipo]}</span></td>
                     <td className="muted">{fmtFecha(m.fecha_inicio)}</td>
                     <td className="muted">{m.fecha_fin ? fmtFecha(m.fecha_fin) : <span className="pos">vigente</span>}</td>
+                    <td className="right mono">{fmt(m.sueldo_periodo_real)}</td>
+                    <td className="right mono">{fmt(m.sueldo_periodo_fiscal)}</td>
                     <td className="right mono">{fmt(m.sueldo_diario_real)}</td>
-                    <td className="right mono">{fmt(m.sueldo_diario_fiscal)}</td>
                     <td className="right mono blue">{fmt(m.sdi)}</td>
                     <td className="muted text-xs">{m.nota || '—'}</td>
                     <td className="muted text-xs">{m.changed_by_nombre || '—'}</td>
@@ -195,8 +207,16 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
                 </div>
                 <div><label className="field-label">Fecha de inicio (vigencia)</label><input className="field-input" type="date" value={form.fecha_inicio} onChange={(e) => setForm((p: any) => ({ ...p, fecha_inicio: e.target.value }))} /></div>
                 <div />
-                <div><label className="field-label">Sueldo diario real</label><input className="field-input mono" type="number" step="0.01" value={form.sueldo_diario_real} onChange={(e) => setForm((p: any) => ({ ...p, sueldo_diario_real: e.target.value }))} /></div>
-                <div><label className="field-label">Sueldo diario fiscal (IMSS)</label><input className="field-input mono" type="number" step="0.01" value={form.sueldo_diario_fiscal} onChange={(e) => setFiscal(e.target.value)} /></div>
+                <div>
+                  <label className="field-label">Sueldo {periodoAdj} real</label>
+                  <input className="field-input mono" type="number" step="0.01" value={form.periodo_real} onChange={(e) => setForm((p: any) => ({ ...p, periodo_real: e.target.value }))} />
+                  <div className="text-xs muted" style={{ marginTop: 3 }}>Diario: {fmt((parseFloat(form.periodo_real) || 0) / divisor)} (÷{divisor})</div>
+                </div>
+                <div>
+                  <label className="field-label">Sueldo {periodoAdj} fiscal (IMSS)</label>
+                  <input className="field-input mono" type="number" step="0.01" value={form.periodo_fiscal} onChange={(e) => setFiscalP(e.target.value)} />
+                  <div className="text-xs muted" style={{ marginTop: 3 }}>Diario: {fmt((parseFloat(form.periodo_fiscal) || 0) / divisor)} (÷{divisor})</div>
+                </div>
                 <div><label className="field-label">SDI (auto, editable)</label><input className="field-input mono" type="number" step="0.01" value={form.sdi} onChange={(e) => setForm((p: any) => ({ ...p, sdi: e.target.value }))} /></div>
               </div>
               <div className="form-grid" style={{ marginTop: 14 }}><div><label className="field-label">Nota / motivo</label><input className="field-input" value={form.nota} placeholder="Ej. Aumento anual, ajuste de SDI…" onChange={(e) => setForm((p: any) => ({ ...p, nota: e.target.value }))} /></div></div>
