@@ -232,4 +232,13 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
   (sueldos por movimientos + botón SUELDO), F3 (nóminas por esquema), F4 (vacaciones),
   F5 (dashboard KPIs), F6 (revisión de cálculos).
 
+### 2026-06-02 — F1: Catálogo de empleados
+- Nueva columna `empleados.alta_imss` (bool). Toggle **Alta IMSS** por empleado en la tabla
+  y en el formulario (apagado = todo efectivo; prendido = transferencia + vales). Su efecto
+  en el cálculo de distribución del pago se aplicará en F2/F6.
+- Se **ocultaron sueldos/infonavit** del catálogo (columnas de tabla y sección del formulario).
+  La gestión de sueldos + historial pasa a la pantalla protegida **SUELDO** (F2).
+- Formulario de empleado casi a pantalla completa (modal 96vw / máx 1180px).
+- Filtros Activos / Bajas / Todos (bajas se muestran en gris).
+
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->
