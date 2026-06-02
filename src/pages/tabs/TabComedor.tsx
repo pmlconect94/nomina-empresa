@@ -19,9 +19,13 @@ export function TabComedor({ semana, nominas, empleados, canEdit }: any) {
       const dow = d.getDay();
       if (dow >= 1 && dow <= 5) out.push(new Date(d));
     }
+    // Quincena: el comedor es de 10 días. Cuando caen 11 hábiles (p.ej. el 15),
+    // el día sobrante no cuenta para esta quincena (pasa a la siguiente).
+    if (semana.tipo === 'quincenal') return out.slice(0, 10);
     return out;
   }
   const dias = diasHabiles();
+  const fechasValidas = new Set(dias.map((d) => toISO(d)));
 
   useEffect(() => {
     (async () => {
@@ -36,7 +40,10 @@ export function TabComedor({ semana, nominas, empleados, canEdit }: any) {
 
   function countNom(nomId: string, set: Set<string>) {
     let n = 0;
-    set.forEach((k) => { if (k.startsWith(nomId + '|')) n++; });
+    set.forEach((k) => {
+      const [id, fecha] = k.split('|');
+      if (id === nomId && fechasValidas.has(fecha)) n++;
+    });
     return n;
   }
 
@@ -58,7 +65,8 @@ export function TabComedor({ semana, nominas, empleados, canEdit }: any) {
     } catch (err) { console.error(err); }
   }
 
-  const totalDias = marcados.size;
+  let totalDias = 0;
+  marcados.forEach((k) => { if (fechasValidas.has(k.split('|')[1])) totalDias++; });
 
   return (
     <div>

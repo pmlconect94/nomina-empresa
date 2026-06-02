@@ -137,7 +137,10 @@ pages/
 lib/supabase.js             cliente Supabase + constantes + lógica de cálculo
 ```
 
-## Modelo de datos (Postgres, schema `public` del proyecto Supabase `crm-pml`)
+## Modelo de datos (Postgres, schema **`nomina`** del proyecto Supabase `crm-pml`)
+
+> Desde 2026-06-02 las tablas de nómina viven en el schema **`nomina`** (no en `public`). El
+> WMS sigue en `public` y el CRM en `crm`. El cliente del front usa `db: { schema: 'nomina' }`.
 
 Tablas de **nómina** (las del WMS NO se tocan): `empleados` (ficha completa + `alta_imss`,
 `sd_real`/`sd_fiscal` semanal-equiv, `vales`, `prevision_social`, `infonavit`), `semanas`,
@@ -357,6 +360,25 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
 - **Sin Alta IMSS** (switch apagado): todo el sueldo va a **efectivo**, no hay vales ni depósito,
   y solo cuenta el sueldo real (lógica en `calcularNomina`). En la pestaña **Fiscal** esos
   empleados salen **en gris** ("Sin Alta IMSS — todo a efectivo").
+
+### 2026-06-02 — Schema `nomina`, fix retardos, comedor 10 días, Retroactivos
+- **Base de datos → schema `nomina`:** las **14 tablas de nómina** se movieron de `public` a un
+  schema dedicado **`nomina`** (separadas del WMS, que se queda en `public`; el CRM ya usaba su
+  schema `crm`). Se verificó que ninguna FK ni RLS cruza entre apps. `get_user_rol()` ahora apunta
+  a `nomina.usuarios_roles` (SECURITY DEFINER, `search_path = nomina, public`). Schema expuesto en
+  la API (`pgrst.db_schemas = public,crm,storage,graphql_public,nomina`).
+  - **Cliente front:** `createClient(..., { db: { schema: 'nomina' } })` en `lib/supabase.ts` →
+    todos los `.from()` resuelven a `nomina.*` sin cambiar cada llamada.
+  - **Edge function `admin-users`:** su cliente service-role usa `db: { schema: 'nomina' }` (v2).
+- **Fix cálculo retardos:** `retardoMonto` ahora es `horas × (dDR/8)` (valor por hora), antes era
+  `horas × dDR` (día completo → ~8× de más). `lib/calc.ts`.
+- **Comedor en quincena = 10 días:** el calendario de comedor se limita a 10 hábiles en quincenal
+  (el 11º, p.ej. el 15, pasa a la otra quincena). El conteo/monto solo cuenta días visibles.
+  `tabs/TabComedor.tsx`.
+- **Nuevo apartado Retroactivos** (`tabs/TabRetroactivos.tsx`): viajes/HE de **otro periodo**
+  pagados en esta nómina. Tabla **`nomina_retroactivo`** (tipo viaje/horas_extra, periodo_origen,
+  descripcion, monto). Es **percepción**: `calcularNomina` recibe `retroactivo` y lo suma; aparece
+  en el recibo y en una columna **Retro.** del Resumen. Captura por empleado con botón **"+"**.
 - **Fiscal:** agregada la columna **ID NOMEX** con orden por ese ID.
 
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->

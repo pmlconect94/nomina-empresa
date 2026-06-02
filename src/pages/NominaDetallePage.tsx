@@ -13,6 +13,7 @@ import { TabFiscal } from './tabs/TabFiscal';
 import { TabPrestamosResumen } from './tabs/TabPrestamosResumen';
 import { TabDescuentoProducto } from './tabs/TabDescuentoProducto';
 import { TabBonos } from './tabs/TabBonos';
+import { TabRetroactivos } from './tabs/TabRetroactivos';
 import { ViajesPanel } from './ViajesPage';
 
 const TABS = [
@@ -22,6 +23,7 @@ const TABS = [
   { key: 'comedor', label: 'Comedor' },
   { key: 'descproducto', label: 'Desc. producto' },
   { key: 'bonos', label: 'Bonos' },
+  { key: 'retroactivos', label: 'Retroactivos' },
   { key: 'prestamos', label: 'Préstamos' },
   { key: 'fiscal', label: 'Fiscal' },
 ];
@@ -42,6 +44,7 @@ export function NominaDetallePage() {
   const [prestamosData, setPrestamosData] = useState<any[]>([]);
   const [descProductoMap, setDescProductoMap] = useState<Record<string, number>>({});
   const [bonoMap, setBonoMap] = useState<Record<string, number>>({});
+  const [retroMap, setRetroMap] = useState<Record<string, number>>({});
   const [viajesEmp, setViajesEmp] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
   const [unlock, setUnlock] = useState(false);
@@ -56,13 +59,14 @@ export function NominaDetallePage() {
     setSemana(sem);
 
     const esquema = sem.tipo === 'semanal' ? 'Semanal' : 'Quincenal';
-    const [empRes, nomRes, viajesRes, prestRes, descRes, bonoRes] = await Promise.all([
+    const [empRes, nomRes, viajesRes, prestRes, descRes, bonoRes, retroRes] = await Promise.all([
       supabase.from('empleados').select('*').eq('activo', true).eq('esquema_pago', esquema).order('nombre'),
       supabase.from('nominas').select('*').eq('semana_id', sem.id),
       supabase.from('viajes').select('*').eq('semana_id', sem.id),
       supabase.from('prestamos').select('*, empleado:empleado_id(nombre,area)').eq('activo', true),
       supabase.from('nomina_descuento_producto').select('empleado_id,monto').eq('semana_id', sem.id),
       supabase.from('nomina_bono').select('empleado_id,monto').eq('semana_id', sem.id),
+      supabase.from('nomina_retroactivo').select('empleado_id,monto').eq('semana_id', sem.id),
     ]);
     setEmpleados(empRes.data || []);
     const nomMap: any = {}; (nomRes.data || []).forEach((n) => (nomMap[n.empleado_id] = n)); setNominas(nomMap);
@@ -86,6 +90,7 @@ export function NominaDetallePage() {
 
     const dpMap: any = {}; (descRes.data || []).forEach((d: any) => { dpMap[d.empleado_id] = (dpMap[d.empleado_id] || 0) + (d.monto || 0); }); setDescProductoMap(dpMap);
     const bMap: any = {}; (bonoRes.data || []).forEach((b: any) => { bMap[b.empleado_id] = (bMap[b.empleado_id] || 0) + (b.monto || 0); }); setBonoMap(bMap);
+    const rMap: any = {}; (retroRes.data || []).forEach((r: any) => { rMap[r.empleado_id] = (rMap[r.empleado_id] || 0) + (r.monto || 0); }); setRetroMap(rMap);
 
     const fechaIni = new Date(sem.fecha_inicio + 'T12:00:00');
     const dMap: any = {};
@@ -141,7 +146,7 @@ export function NominaDetallePage() {
   const calcData = empleados.map((e) => {
     const nom = nominas[e.id];
     const asist = nom ? (asistencias[nom.id] || []) : [];
-    return { empleado: e, nomina: nom, asistencias: asist, viajes: viajesEmp[e.id] || [], calc: calcularNomina(e, nom, asist, incentivos[e.id] || 0, prestamosDesc[e.id] || 0, semana.tipo, descProductoMap[e.id] || 0, bonoMap[e.id] || 0) };
+    return { empleado: e, nomina: nom, asistencias: asist, viajes: viajesEmp[e.id] || [], calc: calcularNomina(e, nom, asist, incentivos[e.id] || 0, prestamosDesc[e.id] || 0, semana.tipo, descProductoMap[e.id] || 0, bonoMap[e.id] || 0, retroMap[e.id] || 0) };
   });
 
   return (
@@ -170,6 +175,7 @@ export function NominaDetallePage() {
       {tab === 'comedor' && <TabComedor semana={semana} nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} />}
       {tab === 'descproducto' && <TabDescuentoProducto semana={semana} nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} onChanged={cargar} />}
       {tab === 'bonos' && <TabBonos semana={semana} nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} onChanged={cargar} />}
+      {tab === 'retroactivos' && <TabRetroactivos semana={semana} nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} onChanged={cargar} />}
       {tab === 'prestamos' && <TabPrestamosResumen prestamos={prestamosData} descMap={prestamosDesc} semana={semana} />}
       {tab === 'fiscal' && <TabFiscal calcData={calcData} nominas={nominas} semana={semana} canEdit={canEdit && !timbrada} />}
 

@@ -8,6 +8,8 @@ if (!url || !anonKey) {
 }
 
 // Auth por email/contraseña → persistimos la sesión.
+// Todas las tablas de la app viven en el schema `nomina` (separado del WMS, que usa `public`).
 export const supabase = createClient(url, anonKey, {
   auth: { persistSession: true, autoRefreshToken: true },
+  db: { schema: 'nomina' },
 });

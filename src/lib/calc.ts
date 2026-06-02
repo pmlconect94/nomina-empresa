@@ -33,7 +33,7 @@ export function descuentoPrestamoMonto(monto: number, tipo: string): number {
   return tipo === 'semanal' ? monto * 0.1 : monto * 0.2;
 }
 
-export function calcularNomina(empleado: any, nomina: any, asistencias: any[], incentivosViaje: number, descuentoPrestamo: number, tipo: string = 'semanal', descuentoProducto: number = 0, bono: number = 0) {
+export function calcularNomina(empleado: any, nomina: any, asistencias: any[], incentivosViaje: number, descuentoPrestamo: number, tipo: string = 'semanal', descuentoProducto: number = 0, bono: number = 0, retroactivo: number = 0) {
   const sdFiscal = empleado.sd_fiscal || 0; // semanal-equivalente (diario × 7)
   const sdReal = empleado.sd_real || 0;
   const dDR = sdReal / 7;   // sueldo diario real
@@ -67,10 +67,10 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   const primaFiscal = diasV > 0 ? dDF * diasV * 0.25 : 0;
   const primaEfectivo = diasV > 0 ? dDR * diasV * 0.25 : 0;
   const incentivos = incentivosViaje || 0;
-  const retardoMonto = totalRetHrs * dDR;
+  const retardoMonto = totalRetHrs * (dDR / 8); // por hora (jornada 8h), no salario diario completo
   const prestDesc = descuentoPrestamo || 0;
 
-  const totalPerc = asistMonto + septimo + te + primaEfectivo + incentivos + (bono || 0)
+  const totalPerc = asistMonto + septimo + te + primaEfectivo + incentivos + (bono || 0) + (retroactivo || 0)
     + (nomina?.comisiones || 0) + (nomina?.retroactivos || 0) + (nomina?.evaluacion || 0);
 
   const infonavit = parseFloat(nomina?.infonavit || empleado.infonavit || 0);
@@ -87,7 +87,7 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
     dDR, dDF, vales, prevSocial, sueldoFiscalPeriodo, sueldoRealPeriodo, altaImss,
     diasA, diasCuentan, diasV, diasF, totalTEHrs, totalRetHrs,
     asistMonto, septimo, te, primaFiscal, primaEfectivo,
-    incentivos, retardoMonto, prestDesc, descuentoProducto: descuentoProducto || 0, bono: bono || 0,
+    incentivos, retardoMonto, prestDesc, descuentoProducto: descuentoProducto || 0, bono: bono || 0, retroactivo: retroactivo || 0,
     totalPerc, totalDed, neto, deposito, depositoBanco, efectivo,
     infonavit, comedor,
     isr: parseFloat(nomina?.isr || 0),

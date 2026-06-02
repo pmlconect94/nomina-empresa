@@ -40,6 +40,7 @@ function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
           <Linea label={`Horas extra (${c.totalTEHrs}h)`} value={c.te} />
           <Linea label="Viajes / incentivos" value={c.incentivos} />
           <Linea label="Bono" value={c.bono} />
+          <Linea label="Retroactivo (viajes/HE)" value={c.retroactivo} />
           <Linea label="Prima vacacional" value={c.primaEfectivo} />
           <Linea label="Comisiones" value={c.comisiones} />
           <Linea label="Retroactivos" value={c.retroactivos} />
@@ -155,7 +156,7 @@ export function TabResumen({ calcData }: { calcData: any[]; semana: any }) {
               <Th k="nombre">Empleado</Th>
               <Th k="id_toka">ID Toka</Th>
               <Th k="id_banco">ID Banco</Th>
-              <th className="right">Asist.</th><th className="right">7mo día</th><th className="right">T. extra</th><th className="right">Viajes</th><th className="right">Bono</th>
+              <th className="right">Asist.</th><th className="right">7mo día</th><th className="right">T. extra</th><th className="right">Viajes</th><th className="right">Bono</th><th className="right">Retro.</th>
               <th className="right">Infonavit</th><th className="right">Comedor</th><th className="right">Retardos</th><th className="right">Préstamos</th><th className="right">Desc. prod.</th>
               <Th k="neto" right>Neto</Th><Th k="depBanco" right>Dep. banco</Th><th className="right">Vales</th><Th k="efectivo" right>Efectivo</Th>
             </tr>
@@ -174,6 +175,7 @@ export function TabResumen({ calcData }: { calcData: any[]; semana: any }) {
                   <td className="right mono">{c.te > 0 ? fmt(c.te) : '—'}</td>
                   <td className="right mono">{c.incentivos > 0 ? fmt(c.incentivos) : '—'}</td>
                   <td className="right mono pos">{c.bono > 0 ? fmt(c.bono) : '—'}</td>
+                  <td className="right mono pos">{c.retroactivo > 0 ? fmt(c.retroactivo) : '—'}</td>
                   <td className="right mono">{c.infonavit > 0 ? '-' + fmt(c.infonavit) : '—'}</td>
                   <td className="right mono">{c.comedor > 0 ? '-' + fmt(c.comedor) : '—'}</td>
                   <td className="right mono">{c.retardoMonto > 0 ? '-' + fmt(c.retardoMonto) : '—'}</td>
@@ -189,7 +191,7 @@ export function TabResumen({ calcData }: { calcData: any[]; semana: any }) {
           </tbody>
           <tfoot>
             <tr style={{ background: 'var(--ink-50)', fontWeight: 700 }}>
-              <td colSpan={3}>Totales</td><td colSpan={10}></td>
+              <td colSpan={3}>Totales</td><td colSpan={11}></td>
               <td className="right mono">{fmt(t.neto)}</td><td className="right mono orange">{fmt(t.depBanco)}</td><td className="right mono orange">{fmt(t.vales)}</td><td className="right mono blue">{fmt(t.efectivo)}</td>
             </tr>
           </tfoot>
