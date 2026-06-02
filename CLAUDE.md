@@ -254,4 +254,16 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
   `empleados.sd_real` y `sd_fiscal` (= sueldo diario × 7), para que `calcularNomina` (semanal)
   siga funcionando sin cambios. La refactorización del cálculo a base diaria queda para F6.
 
+### 2026-06-02 — Ajustes catálogo + descuentos permanentes + densidad
+- **Fix:** el candado de sueldos autocompletaba la barra de búsqueda del catálogo. La búsqueda
+  va en un `<form autoComplete="off">` y el candado tiene un campo usuario oculto (`username`).
+- Se quitó el botón **Alta/Baja** del catálogo: las altas/bajas se hacen desde la pantalla
+  **Sueldo** (re-alta vuelve a activar y queda en el historial de movimientos).
+- Nuevo botón **Ver** (tarjeta de detalle solo lectura, con botón Editar).
+- **Alta IMSS:** prender es libre; **apagar requiere autorización** (contraseña).
+- Nueva tabla `empleado_descuentos` (Infonavit, Fonacot, pensión, etc.) con vigencia e
+  **historial**, gestionada en la pantalla Sueldo. El Infonavit vigente se sincroniza a
+  `empleados.infonavit` para el cálculo.
+- **Densidad reducida** en todo el UI (fuentes/paddings) para scrollear menos.
+
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->

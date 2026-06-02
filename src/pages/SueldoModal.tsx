@@ -8,6 +8,7 @@ import { Icon } from '@/components/Icon';
 
 const TIPO_LABEL: Record<string, string> = { alta: 'Alta', modificacion: 'Modificación de sueldo', baja: 'Baja' };
 const TIPO_BADGE: Record<string, string> = { alta: 'badge-green', modificacion: 'badge-blue', baja: 'badge-gray' };
+const CONCEPTOS = ['Infonavit', 'Fonacot', 'Pensión alimenticia', 'Caja de ahorro', 'Otro'];
 
 export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; onClose: () => void; onChanged: () => void }) {
   const { user } = useAuth();
@@ -16,6 +17,10 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Descuentos permanentes
+  const [descs, setDescs] = useState<any[]>([]);
+  const [showDescForm, setShowDescForm] = useState(false);
+  const [descForm, setDescForm] = useState<any>({ concepto: 'Infonavit', monto: '', fecha_inicio: '', nota: '' });
 
   const antig = antiguedadAnios(empleado.fecha_ingreso);
   const factor = factorIntegracionSDI(antig);
@@ -23,12 +28,48 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
   const hoy = useMemo(() => toISO(new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000)), []);
   const [form, setForm] = useState<any>({ tipo: 'modificacion', fecha_inicio: hoy, sueldo_diario_real: '', sueldo_diario_fiscal: '', sdi: '', nota: '' });
 
-  useEffect(() => { fetchMovs(); }, []);
+  useEffect(() => { fetchMovs(); fetchDescs(); }, []);
   async function fetchMovs() {
     setLoading(true);
     const { data } = await supabase.from('empleado_sueldo_movimientos').select('*').eq('empleado_id', empleado.id).order('fecha_inicio', { ascending: false }).order('created_at', { ascending: false });
     setMovs(data || []);
     setLoading(false);
+  }
+  async function fetchDescs() {
+    const { data } = await supabase.from('empleado_descuentos').select('*').eq('empleado_id', empleado.id).order('fecha_inicio', { ascending: false }).order('created_at', { ascending: false });
+    setDescs(data || []);
+  }
+
+  // Sincroniza empleados.infonavit con el descuento Infonavit vigente (lo usa el cálculo actual).
+  async function syncInfonavit() {
+    const { data } = await supabase.from('empleado_descuentos').select('monto').eq('empleado_id', empleado.id).eq('concepto', 'Infonavit').eq('activo', true).is('fecha_fin', null);
+    const total = (data || []).reduce((s: number, d: any) => s + (d.monto || 0), 0);
+    await supabase.from('empleados').update({ infonavit: total }).eq('id', empleado.id);
+  }
+
+  async function guardarDescuento() {
+    const monto = parseFloat(descForm.monto) || 0;
+    if (monto <= 0) { toast.error('Captura el monto del descuento'); return; }
+    if (!descForm.fecha_inicio) { toast.error('Falta la fecha de inicio'); return; }
+    setSaving(true);
+    // Cerrar el vigente del mismo concepto (queda en historial).
+    const previo = descs.find((d) => d.concepto === descForm.concepto && d.activo && !d.fecha_fin);
+    if (previo) await supabase.from('empleado_descuentos').update({ fecha_fin: descForm.fecha_inicio, activo: false }).eq('id', previo.id);
+    const { error } = await supabase.from('empleado_descuentos').insert({
+      empleado_id: empleado.id, concepto: descForm.concepto, monto, fecha_inicio: descForm.fecha_inicio, fecha_fin: null, activo: true,
+      nota: descForm.nota.trim() || null, changed_by: user?.id, changed_by_nombre: user?.nombre,
+    });
+    if (error) { toast.error(error.message); setSaving(false); return; }
+    await syncInfonavit();
+    toast.success('Descuento registrado');
+    setShowDescForm(false); setDescForm({ concepto: 'Infonavit', monto: '', fecha_inicio: hoy, nota: '' }); setSaving(false); fetchDescs(); onChanged();
+  }
+
+  async function quitarDescuento(d: any) {
+    if (!confirm(`¿Terminar el descuento de ${d.concepto}?`)) return;
+    await supabase.from('empleado_descuentos').update({ fecha_fin: hoy, activo: false }).eq('id', d.id);
+    await syncInfonavit();
+    toast.success('Descuento terminado'); fetchDescs(); onChanged();
   }
 
   const vigente = movs.find((m) => m.tipo !== 'baja' && !m.fecha_fin) || null;
@@ -164,6 +205,48 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
               </div>
             </div>
           )}
+          {/* ── Descuentos permanentes ── */}
+          <div className="hstack" style={{ justifyContent: 'space-between', margin: '22px 0 10px' }}>
+            <h4 className="card-title">Descuentos permanentes (Infonavit, etc.)</h4>
+            {canEdit && <button className="btn btn-primary btn-sm" onClick={() => { setDescForm({ concepto: 'Infonavit', monto: '', fecha_inicio: hoy, nota: '' }); setShowDescForm(true); }}><Icon name="plus" size={14} /> Agregar descuento</button>}
+          </div>
+          <div className="card tbl-wrap">
+            <table className="tbl">
+              <thead><tr><th>Concepto</th><th>Inicio</th><th>Fin</th><th className="right">Monto / nómina</th><th>Nota</th><th>Usuario</th>{canEdit && <th></th>}</tr></thead>
+              <tbody>
+                {descs.length === 0 && <tr><td colSpan={canEdit ? 7 : 6}><div className="empty"><div className="empty-title">Sin descuentos</div></div></td></tr>}
+                {descs.map((d) => {
+                  const vig = d.activo && !d.fecha_fin;
+                  return (
+                    <tr key={d.id} style={vig ? { background: 'var(--blue-50)' } : undefined}>
+                      <td><span className="badge badge-gray">{d.concepto}</span></td>
+                      <td className="muted">{fmtFecha(d.fecha_inicio)}</td>
+                      <td className="muted">{d.fecha_fin ? fmtFecha(d.fecha_fin) : <span className="pos">vigente</span>}</td>
+                      <td className="right mono">{fmt(d.monto)}</td>
+                      <td className="muted text-xs">{d.nota || '—'}</td>
+                      <td className="muted text-xs">{d.changed_by_nombre || '—'}</td>
+                      {canEdit && <td>{vig && <button className="btn btn-ghost btn-sm" onClick={() => quitarDescuento(d)} title="Terminar">Terminar</button>}</td>}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {showDescForm && (
+            <div style={{ marginTop: 14, border: '1px solid var(--ink-200)', borderRadius: 'var(--r-md)', padding: 16, background: 'var(--ink-50)' }}>
+              <div className="form-grid form-grid-3">
+                <div><label className="field-label">Concepto</label><select className="field-input" value={descForm.concepto} onChange={(e) => setDescForm((p: any) => ({ ...p, concepto: e.target.value }))}>{CONCEPTOS.map((c) => <option key={c}>{c}</option>)}</select></div>
+                <div><label className="field-label">Monto por nómina</label><input className="field-input mono" type="number" step="0.01" value={descForm.monto} onChange={(e) => setDescForm((p: any) => ({ ...p, monto: e.target.value }))} /></div>
+                <div><label className="field-label">Fecha de inicio</label><input className="field-input" type="date" value={descForm.fecha_inicio} onChange={(e) => setDescForm((p: any) => ({ ...p, fecha_inicio: e.target.value }))} /></div>
+              </div>
+              <div className="form-grid" style={{ marginTop: 10 }}><div><label className="field-label">Nota / motivo</label><input className="field-input" value={descForm.nota} placeholder="Ej. crédito 1234, ajuste…" onChange={(e) => setDescForm((p: any) => ({ ...p, nota: e.target.value }))} /></div></div>
+              <div className="hstack" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+                <button className="btn btn-outline btn-sm" onClick={() => setShowDescForm(false)}>Cancelar</button>
+                <button className="btn btn-primary btn-sm" onClick={guardarDescuento} disabled={saving}>{saving ? 'Guardando…' : 'Guardar descuento'}</button>
+              </div>
+            </div>
+          )}
+          <p className="text-xs muted" style={{ marginTop: 10 }}>Al modificar un descuento del mismo concepto, el anterior se cierra y queda en el historial. El de <strong>Infonavit</strong> se aplica automáticamente en el cálculo de la nómina.</p>
         </div>
 
         <div className="modal-footer"><button className="btn btn-outline" onClick={onClose}>Cerrar</button></div>
