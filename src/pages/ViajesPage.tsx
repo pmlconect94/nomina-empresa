@@ -8,7 +8,7 @@ import { Icon } from '@/components/Icon';
 const TRAMOS = ['7am–3pm', '3pm–7pm', '7pm–11pm', '11pm+'];
 const EMPTY = { fecha: '', destino: '', cliente: '', vehiculo: '', chofer_id: '', acompanante_id: '', hora_salida: '', hora_llegada: '', se_quedo_dormir: false };
 
-export function ViajesPanel({ semana, canEdit }: any) {
+export function ViajesPanel({ semana, canEdit, onChanged }: any) {
   const [empleados, setEmpleados] = useState<any[]>([]);
   const [viajes, setViajes] = useState<any[]>([]);
   const [form, setForm] = useState<any>({ ...EMPTY });
@@ -35,9 +35,9 @@ export function ViajesPanel({ semana, canEdit }: any) {
   async function guardar() {
     if (!form.chofer_id && !form.acompanante_id) { toast.error('Selecciona chofer o acompañante'); return; }
     await supabase.from('viajes').insert({ semana_id: semana.id, fecha: form.fecha || null, destino: form.destino, cliente: form.cliente, vehiculo: form.vehiculo, chofer_id: form.chofer_id || null, acompanante_id: form.acompanante_id || null, hora_salida: form.hora_salida || null, hora_llegada: form.hora_llegada || null, se_quedo_dormir: form.se_quedo_dormir, incent_chofer: incent.chofer, incent_acompanante: incent.acomp });
-    setForm({ ...EMPTY }); setIncent({ chofer: 0, acomp: 0, tramo: null }); toast.success('Viaje agregado'); fetchViajes();
+    setForm({ ...EMPTY }); setIncent({ chofer: 0, acomp: 0, tramo: null }); toast.success('Viaje agregado'); fetchViajes(); onChanged?.();
   }
-  async function eliminar(id: string) { if (!confirm('¿Eliminar viaje?')) return; await supabase.from('viajes').delete().eq('id', id); fetchViajes(); }
+  async function eliminar(id: string) { if (!confirm('¿Eliminar viaje?')) return; await supabase.from('viajes').delete().eq('id', id); fetchViajes(); onChanged?.(); }
 
   const total = viajes.reduce((s, v) => s + (v.incent_chofer || 0) + (v.incent_acompanante || 0), 0);
 

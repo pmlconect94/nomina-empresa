@@ -50,7 +50,9 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   const totalRetHrs = dias.reduce((s, d) => s + (parseFloat(d.retardo_min) || 0) / 60, 0);
 
   const asistMonto = diasA * dDR;
-  const septimo = dDR * (Math.min(diasCuentan, 6) / 6);
+  // Séptimo día proporcional: 1 día de descanso pagado por cada 6 que cuentan.
+  // Semana completa (6) = 1 séptimo; quincena completa (12) = 2 séptimos.
+  const septimo = dDR * (diasCuentan / 6);
   const te = totalTEHrs * (dDR / 8) * 2;
   const primaFiscal = diasV > 0 ? dDF * diasV * 0.25 : 0;
   const primaEfectivo = diasV > 0 ? dDR * diasV * 0.25 : 0;

@@ -277,4 +277,16 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
   debería ser proporcional (≈2 séptimos). El sueldo ya es diario (día × días trabajados escala
   bien al periodo); validar montos quincenales al hacer pruebas.
 
+### 2026-06-02 — Comedor calendario + ajustes de captura
+- **Comedor:** ahora es un **calendario** (lunes a viernes, con días en el encabezado; semana =
+  5 días, quincena = ~10). Cada check se guarda por día en la tabla `comedor_registro`
+  (para el reporte mensual al proveedor). El monto se sincroniza a `nominas.comedor`.
+- **Cálculo del séptimo día:** ahora es proporcional (`díasQueCuentan / 6`), así la quincena
+  da ≈2 séptimos en vez de 1.
+- **Asistencias:** línea divisoria entre días + botón **"✓ Todos A"** por día (marca asistencia
+  a todos y solo capturas las faltas).
+- **Viajes:** al guardar/eliminar ahora se refleja de inmediato en el Resumen (callback al padre).
+- **Resumen:** columnas **ID Toka** e **ID Banco** + encabezados ordenables (nombre, IDs, neto,
+  depósito, efectivo).
+
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->

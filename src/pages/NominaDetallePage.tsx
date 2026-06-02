@@ -152,8 +152,8 @@ export function NominaDetallePage() {
 
       {tab === 'resumen' && <TabResumen calcData={calcData} semana={semana} />}
       {tab === 'asistencias' && <TabAsistencias semana={semana} nominas={nominas} empleados={empleados} asistencias={asistencias} canEdit={canEdit && !timbrada} />}
-      {tab === 'viajes' && <ViajesPanel semana={semana} canEdit={canEdit && !timbrada} />}
-      {tab === 'comedor' && <TabComedor nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} />}
+      {tab === 'viajes' && <ViajesPanel semana={semana} canEdit={canEdit && !timbrada} onChanged={cargar} />}
+      {tab === 'comedor' && <TabComedor semana={semana} nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} />}
       {tab === 'prestamos' && <TabPrestamosResumen prestamos={prestamosData} descMap={prestamosDesc} semana={semana} />}
       {tab === 'fiscal' && <TabFiscal calcData={calcData} nominas={nominas} semana={semana} canEdit={canEdit && !timbrada} />}
 

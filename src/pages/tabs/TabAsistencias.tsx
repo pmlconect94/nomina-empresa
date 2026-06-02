@@ -25,6 +25,18 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, canEdi
   const days = dias();
   const get = (nomId: string, i: number) => local[`${nomId}_${i}`] || null;
 
+  // Poner "A" (asistencia) a todos los empleados en un día.
+  async function llenarDiaA(i: number, fecha: string) {
+    if (!canEdit) return;
+    for (const emp of empleados) {
+      const nom = nominas[emp.id];
+      if (!nom) continue;
+      const a = get(nom.id, i);
+      if (a?.codigo) continue; // no pisar lo ya capturado
+      await update(nom.id, i, fecha, 'codigo', 'A');
+    }
+  }
+
   async function update(nomId: string, i: number, fecha: string, campo: string, valor: any) {
     const key = `${nomId}_${i}`;
     const ex = local[key];
@@ -51,12 +63,20 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, canEdi
         <table className="tbl" style={{ fontSize: 12 }}>
           <thead>
             <tr>
-              <th>Empleado</th>
-              {days.map((d, i) => <th key={i} colSpan={4} className="center">{DIAS_SEMANA[i] || ''} {d.getDate()} {MESES_C[d.getMonth()]}</th>)}
+              <th style={{ minWidth: 160 }}>Empleado</th>
+              {days.map((d, i) => {
+                const dn = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][d.getDay()];
+                return (
+                  <th key={i} colSpan={4} className="center" style={{ borderLeft: '2px solid var(--ink-300)' }}>
+                    <div>{dn} {d.getDate()} {MESES_C[d.getMonth()]}</div>
+                    {canEdit && <button className="btn btn-outline btn-sm" style={{ padding: '2px 8px', fontSize: 10, marginTop: 4 }} title="Marcar asistencia (A) a todos en este día" onClick={() => llenarDiaA(i, toISO(d))}>✓ Todos A</button>}
+                  </th>
+                );
+              })}
             </tr>
             <tr>
               <th></th>
-              {days.map((_, i) => <th key={i} colSpan={4} className="center text-xs" style={{ fontWeight: 500 }}>Cód · R(h) · TE(h) · Motivo</th>)}
+              {days.map((_, i) => <th key={i} colSpan={4} className="center text-xs" style={{ fontWeight: 500, borderLeft: '2px solid var(--ink-300)' }}>Cód · R(h) · TE(h) · Motivo</th>)}
             </tr>
           </thead>
           <tbody>
@@ -68,7 +88,7 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, canEdi
                   {days.map((d, i) => {
                     const a = get(nom.id, i); const codigo = a?.codigo || '';
                     return (
-                      <td key={i} colSpan={4} style={{ padding: 4 }}>
+                      <td key={i} colSpan={4} style={{ padding: 4, borderLeft: '2px solid var(--ink-300)' }}>
                         <div className="hstack" style={{ gap: 3 }}>
                           <select value={codigo} disabled={!canEdit} onChange={(e) => update(nom.id, i, toISO(d), 'codigo', e.target.value)} style={{ width: 56, padding: '4px 2px', borderRadius: 6, border: '1px solid var(--ink-200)', background: COLOR[codigo] || 'white', fontSize: 11 }}>
                             <option value="">—</option>{CODIGOS_ASISTENCIA.map((c) => <option key={c} value={c}>{c}</option>)}
