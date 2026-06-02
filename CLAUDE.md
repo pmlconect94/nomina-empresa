@@ -46,9 +46,15 @@ VITE_MASTER_PIN=<pin para desbloquear nóminas / sueldos>
 
 ## Repositorio (GitHub)
 
-- **Repo:** `https://github.com/pmlconect94/nomina-empresa` (privado).
+- **Repo:** `https://github.com/pmlconect94/nomina-empresa` (**público**).
 - El código vive aquí para poder trabajar desde varias computadoras.
 - `.env` y `node_modules` **no** se suben (ver `.gitignore`).
+
+> ⚠️ **Por qué público:** el plan **Hobby** de Vercel bloquea (`BLOCKED`) los deploys de
+> repos **privados** cuando el **autor del commit** no es el dueño de la cuenta de Vercel
+> (aquí los commits van como `ventas.lizarraga2@gmail.com`, distinto a `ddl.pml2@gmail.com`).
+> Soluciones: (a) repo público [elegido], o (b) commitear con el email del dueño de Vercel,
+> o (c) upgrade a Pro. Como es público, no se deben subir secretos (el `.env` está en `.gitignore`).
 
 ## Cómo correr y desplegar
 
@@ -211,5 +217,19 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
   para poder continuar desde otra computadora.
 - Agregado `.gitignore` (excluye `node_modules`, `build`, `.env`).
 - Documentado en este archivo el flujo de setup en una computadora nueva.
+
+### 2026-06-02 — F0: migración a Vite + TS + Tailwind (diseño tipo CRM)
+- Migrado de Create React App a **Vite + TypeScript + Tailwind**, replicando el design
+  system del **CRM PML**: shell con **sidebar navy + topbar**, paleta ink/navy/blue, fuente
+  Geist, componentes `.btn/.card/.field-input/.tbl/.badge/.kpi`, Framer Motion.
+- Router con React Router. Páginas en TSX: Login, Dashboard, Empleados (ficha + historial),
+  Nóminas (lista + detalle con 6 pestañas), Préstamos, Viajes, Usuarios.
+- Auth por Supabase (sesión + rol vía `usuarios_roles`). Env vars → `VITE_*`. `vercel.json`
+  (framework vite, output `dist`, rewrites SPA).
+- **Deploy:** se hizo el repo **público** para destrabar el bloqueo de Vercel (ver sección
+  Repositorio). Producción sirve la app nueva en https://nomina-empresa.vercel.app.
+- Pendiente de seguir: F1 (catálogo: toggle Alta IMSS, ocultar sueldos, filtros), F2
+  (sueldos por movimientos + botón SUELDO), F3 (nóminas por esquema), F4 (vacaciones),
+  F5 (dashboard KPIs), F6 (revisión de cálculos).
 
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->
