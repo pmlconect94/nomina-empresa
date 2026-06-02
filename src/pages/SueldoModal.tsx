@@ -24,6 +24,7 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
 
   const antig = antiguedadAnios(empleado.fecha_ingreso);
   const factor = factorIntegracionSDI(antig);
+  const periodo = empleado.esquema_pago === 'Quincenal' ? 'quincena' : 'semana';
 
   const hoy = useMemo(() => toISO(new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000)), []);
   const [form, setForm] = useState<any>({ tipo: 'modificacion', fecha_inicio: hoy, sueldo_diario_real: '', sueldo_diario_fiscal: '', sdi: '', nota: '' });
@@ -212,7 +213,7 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
           </div>
           <div className="card tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>Concepto</th><th>Inicio</th><th>Fin</th><th className="right">Monto / nómina</th><th>Nota</th><th>Usuario</th>{canEdit && <th></th>}</tr></thead>
+              <thead><tr><th>Concepto</th><th>Inicio</th><th>Fin</th><th className="right">Monto / {periodo}</th><th>Nota</th><th>Usuario</th>{canEdit && <th></th>}</tr></thead>
               <tbody>
                 {descs.length === 0 && <tr><td colSpan={canEdit ? 7 : 6}><div className="empty"><div className="empty-title">Sin descuentos</div></div></td></tr>}
                 {descs.map((d) => {
@@ -236,7 +237,7 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
             <div style={{ marginTop: 14, border: '1px solid var(--ink-200)', borderRadius: 'var(--r-md)', padding: 16, background: 'var(--ink-50)' }}>
               <div className="form-grid form-grid-3">
                 <div><label className="field-label">Concepto</label><select className="field-input" value={descForm.concepto} onChange={(e) => setDescForm((p: any) => ({ ...p, concepto: e.target.value }))}>{CONCEPTOS.map((c) => <option key={c}>{c}</option>)}</select></div>
-                <div><label className="field-label">Monto por nómina</label><input className="field-input mono" type="number" step="0.01" value={descForm.monto} onChange={(e) => setDescForm((p: any) => ({ ...p, monto: e.target.value }))} /></div>
+                <div><label className="field-label">Monto por {periodo}</label><input className="field-input mono" type="number" step="0.01" value={descForm.monto} onChange={(e) => setDescForm((p: any) => ({ ...p, monto: e.target.value }))} /></div>
                 <div><label className="field-label">Fecha de inicio</label><input className="field-input" type="date" value={descForm.fecha_inicio} onChange={(e) => setDescForm((p: any) => ({ ...p, fecha_inicio: e.target.value }))} /></div>
               </div>
               <div className="form-grid" style={{ marginTop: 10 }}><div><label className="field-label">Nota / motivo</label><input className="field-input" value={descForm.nota} placeholder="Ej. crédito 1234, ajuste…" onChange={(e) => setDescForm((p: any) => ({ ...p, nota: e.target.value }))} /></div></div>

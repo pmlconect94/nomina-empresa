@@ -41,11 +41,13 @@ export function NominasPage() {
   async function crear() {
     if (!tipo || !ini || !fin) return;
     setSaving(true);
+    const esquema = tipo === 'semanal' ? 'Semanal' : 'Quincenal';
     const { data: semana, error } = await supabase.from('semanas').insert({ fecha_inicio: ini, fecha_fin: fin, tipo, status: 'abierta' }).select().single();
     if (error) { toast.error(error.message); setSaving(false); return; }
-    const { data: emps } = await supabase.from('empleados').select('id').eq('activo', true);
+    // Solo los empleados activos de ESE esquema (semanal o quincenal).
+    const { data: emps } = await supabase.from('empleados').select('id').eq('activo', true).eq('esquema_pago', esquema);
     if (emps?.length) await supabase.from('nominas').insert(emps.map((e: any) => ({ semana_id: semana.id, empleado_id: e.id })));
-    toast.success('Nómina creada');
+    toast.success(`Nómina creada con ${emps?.length || 0} empleados ${esquema.toLowerCase()}s`);
     setModal(false); setTipo(null); setIni(''); setFin(''); setSaving(false); fetch();
   }
 
@@ -113,7 +115,7 @@ export function NominasPage() {
                   <div><label className="field-label">Fecha fin</label><input className="field-input" type="date" value={fin} onChange={(e) => setFin(e.target.value)} /></div>
                 </div>
               )}
-              {tipo && ini && fin && <p className="text-xs muted" style={{ marginTop: 12 }}>Se creará <strong>{fmtPeriodo(ini, fin)}</strong> sin incidencias para todos los empleados activos.</p>}
+              {tipo && ini && fin && <p className="text-xs muted" style={{ marginTop: 12 }}>Se creará <strong>{fmtPeriodo(ini, fin)}</strong> con los empleados activos de esquema <strong>{tipo === 'semanal' ? 'Semanal' : 'Quincenal'}</strong>.</p>}
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setModal(false)}>Cancelar</button>

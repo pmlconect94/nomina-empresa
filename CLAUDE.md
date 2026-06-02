@@ -266,4 +266,15 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
   `empleados.infonavit` para el cálculo.
 - **Densidad reducida** en todo el UI (fuentes/paddings) para scrollear menos.
 
+### 2026-06-02 — F3: Nóminas por esquema (semanal / quincenal)
+- Al crear una nómina, solo se incluyen los empleados activos de **ese** esquema
+  (`empleados.esquema_pago` = Semanal/Quincenal). El detalle de nómina también filtra por esquema.
+- El esquema se elige con botones (Semanal/Quincenal) al crear la nómina, y como *select* en
+  el alta del empleado (no se escribe a mano).
+- Descuentos permanentes: el monto se etiqueta según el periodo del empleado
+  ("Monto por quincena" / "Monto por semana").
+- **Pendiente F6 (calc):** el "séptimo día" usa lógica semanal `min(días,6)/6`; para quincena
+  debería ser proporcional (≈2 séptimos). El sueldo ya es diario (día × días trabajados escala
+  bien al periodo); validar montos quincenales al hacer pruebas.
+
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->

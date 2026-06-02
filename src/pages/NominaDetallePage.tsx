@@ -48,8 +48,9 @@ export function NominaDetallePage() {
     if (!sem) { setLoading(false); return; }
     setSemana(sem);
 
+    const esquema = sem.tipo === 'semanal' ? 'Semanal' : 'Quincenal';
     const [empRes, nomRes, viajesRes, prestRes] = await Promise.all([
-      supabase.from('empleados').select('*').eq('activo', true).order('nombre'),
+      supabase.from('empleados').select('*').eq('activo', true).eq('esquema_pago', esquema).order('nombre'),
       supabase.from('nominas').select('*').eq('semana_id', sem.id),
       supabase.from('viajes').select('*').eq('semana_id', sem.id),
       supabase.from('prestamos').select('*, empleado:empleado_id(nombre,area)').eq('activo', true),
