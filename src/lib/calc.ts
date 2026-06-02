@@ -33,13 +33,18 @@ export function descuentoPrestamoMonto(monto: number, tipo: string): number {
   return tipo === 'semanal' ? monto * 0.1 : monto * 0.2;
 }
 
-export function calcularNomina(empleado: any, nomina: any, asistencias: any[], incentivosViaje: number, descuentoPrestamo: number, tipo: string = 'semanal') {
-  const sdFiscal = empleado.sd_fiscal || 0;
+export function calcularNomina(empleado: any, nomina: any, asistencias: any[], incentivosViaje: number, descuentoPrestamo: number, tipo: string = 'semanal', descuentoProducto: number = 0, bono: number = 0) {
+  const sdFiscal = empleado.sd_fiscal || 0; // semanal-equivalente (diario × 7)
   const sdReal = empleado.sd_real || 0;
-  const dDR = sdReal / 7;
-  const dDF = sdFiscal / 7;
-  const vales = sdFiscal * 0.1;
-  const prevSocial = sdFiscal * 0.1;
+  const dDR = sdReal / 7;   // sueldo diario real
+  const dDF = sdFiscal / 7; // sueldo diario fiscal
+  // Montos del PERIODO (semana=7, quincena=15 días de sueldo).
+  const divisorPeriodo = tipo === 'quincenal' ? 15 : 7;
+  const sueldoFiscalPeriodo = dDF * divisorPeriodo;
+  const sueldoRealPeriodo = dDR * divisorPeriodo;
+  // Vales y previsión: si se capturaron en el sueldo se usan; si no, 10% del fiscal del periodo.
+  const vales = (empleado.vales || 0) > 0 ? empleado.vales : sueldoFiscalPeriodo * 0.1;
+  const prevSocial = (empleado.prevision_social || 0) > 0 ? empleado.prevision_social : sueldoFiscalPeriodo * 0.1;
 
   const dias = asistencias || [];
   const diasA = dias.filter((d) => d.codigo === 'A').length;
@@ -63,12 +68,12 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   const retardoMonto = totalRetHrs * dDR;
   const prestDesc = descuentoPrestamo || 0;
 
-  const totalPerc = asistMonto + septimo + te + primaEfectivo + incentivos
+  const totalPerc = asistMonto + septimo + te + primaEfectivo + incentivos + (bono || 0)
     + (nomina?.comisiones || 0) + (nomina?.retroactivos || 0) + (nomina?.evaluacion || 0);
 
   const infonavit = parseFloat(nomina?.infonavit || empleado.infonavit || 0);
   const comedor = parseFloat(nomina?.comedor || 0);
-  const totalDed = infonavit + comedor + retardoMonto + prestDesc;
+  const totalDed = infonavit + comedor + retardoMonto + prestDesc + (descuentoProducto || 0);
 
   const neto = totalPerc - totalDed;
   const deposito = parseFloat(nomina?.deposito_total || 0);
@@ -76,10 +81,10 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   const efectivo = Math.max(0, neto - deposito);
 
   return {
-    dDR, dDF, vales, prevSocial,
+    dDR, dDF, vales, prevSocial, sueldoFiscalPeriodo, sueldoRealPeriodo,
     diasA, diasCuentan, diasV, diasF, totalTEHrs, totalRetHrs,
     asistMonto, septimo, te, primaFiscal, primaEfectivo,
-    incentivos, retardoMonto, prestDesc,
+    incentivos, retardoMonto, prestDesc, descuentoProducto: descuentoProducto || 0, bono: bono || 0,
     totalPerc, totalDed, neto, deposito, depositoBanco, efectivo,
     infonavit, comedor,
     isr: parseFloat(nomina?.isr || 0),

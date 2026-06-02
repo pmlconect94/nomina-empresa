@@ -31,7 +31,7 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
   const r4 = (x: number) => Math.round(x * 10000) / 10000;
 
   const hoy = useMemo(() => toISO(new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000)), []);
-  const [form, setForm] = useState<any>({ tipo: 'modificacion', fecha_inicio: hoy, periodo_real: '', periodo_fiscal: '', sdi: '', nota: '' });
+  const [form, setForm] = useState<any>({ tipo: 'modificacion', fecha_inicio: hoy, periodo_real: '', periodo_fiscal: '', sdi: '', vales: '', prevision_social: '', nota: '' });
 
   useEffect(() => { fetchMovs(); fetchDescs(); }, []);
   async function fetchMovs() {
@@ -88,15 +88,18 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
       periodo_real: vigente?.sueldo_periodo_real || '',
       periodo_fiscal: vigente?.sueldo_periodo_fiscal || '',
       sdi: vigente?.sdi || '',
+      vales: vigente?.vales || '',
+      prevision_social: vigente?.prevision_social || '',
       nota: '',
     });
     setShowForm(true);
   }
 
-  // Al capturar el sueldo fiscal del periodo, recalcula el SDI (sobre el diario fiscal).
+  // Al capturar el sueldo fiscal del periodo: recalcula SDI y sugiere vales/previsión (10%).
   const setFiscalP = (v: string) => {
     const fp = parseFloat(v) || 0;
-    setForm((p: any) => ({ ...p, periodo_fiscal: v, sdi: fp > 0 ? r4(calcSDI(fp / divisor, antig)) : '' }));
+    const sug = Math.round(fp * 0.1 * 100) / 100;
+    setForm((p: any) => ({ ...p, periodo_fiscal: v, sdi: fp > 0 ? r4(calcSDI(fp / divisor, antig)) : '', vales: fp > 0 ? sug : '', prevision_social: fp > 0 ? sug : '' }));
   };
 
   async function guardar() {
@@ -109,6 +112,8 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
     const dailyReal = r4(periodoReal / divisor);
     const dailyFiscal = r4(periodoFiscal / divisor);
     const sdi = parseFloat(form.sdi) || r4(calcSDI(dailyFiscal, antig));
+    const vales = parseFloat(form.vales) || 0;
+    const prevision = parseFloat(form.prevision_social) || 0;
 
     // Cerrar la vigencia anterior en la fecha de inicio del nuevo movimiento.
     if (vigente) await supabase.from('empleado_sueldo_movimientos').update({ fecha_fin: form.fecha_inicio }).eq('id', vigente.id);
@@ -117,13 +122,14 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
       empleado_id: empleado.id, tipo: form.tipo, fecha_inicio: form.fecha_inicio, fecha_fin: null,
       sueldo_periodo_real: periodoReal, sueldo_periodo_fiscal: periodoFiscal,
       sueldo_diario_real: dailyReal, sueldo_diario_fiscal: dailyFiscal, sdi, factor_integracion: factor,
+      vales, prevision_social: prevision,
       nota: form.nota.trim() || null, changed_by: user?.id, changed_by_nombre: user?.nombre,
     });
     if (error) { toast.error(error.message); setSaving(false); return; }
 
     // El cálculo usa el sueldo SEMANAL-equivalente (diario × 7). El diario sale de dividir
-    // el sueldo del periodo entre 15 (quincena) o 7 (semana).
-    await supabase.from('empleados').update({ sd_real: r4(dailyReal * 7), sd_fiscal: r4(dailyFiscal * 7), activo: true }).eq('id', empleado.id);
+    // el sueldo del periodo entre 15 (quincena) o 7 (semana). Vales/previsión se guardan por periodo.
+    await supabase.from('empleados').update({ sd_real: r4(dailyReal * 7), sd_fiscal: r4(dailyFiscal * 7), vales, prevision_social: prevision, activo: true }).eq('id', empleado.id);
 
     toast.success('Movimiento registrado');
     setShowForm(false); setSaving(false); fetchMovs(); onChanged();
@@ -219,7 +225,11 @@ export function SueldoModal({ empleado, onClose, onChanged }: { empleado: any; o
                 </div>
                 <div><label className="field-label">SDI (auto, editable)</label><input className="field-input mono" type="number" step="0.01" value={form.sdi} onChange={(e) => setForm((p: any) => ({ ...p, sdi: e.target.value }))} /></div>
               </div>
-              <div className="form-grid" style={{ marginTop: 14 }}><div><label className="field-label">Nota / motivo</label><input className="field-input" value={form.nota} placeholder="Ej. Aumento anual, ajuste de SDI…" onChange={(e) => setForm((p: any) => ({ ...p, nota: e.target.value }))} /></div></div>
+              <div className="form-grid form-grid-2" style={{ marginTop: 10 }}>
+                <div><label className="field-label">Vales de despensa (sugerido 10% fiscal)</label><input className="field-input mono" type="number" step="0.01" value={form.vales} onChange={(e) => setForm((p: any) => ({ ...p, vales: e.target.value }))} /></div>
+                <div><label className="field-label">Previsión social (sugerido 10% fiscal)</label><input className="field-input mono" type="number" step="0.01" value={form.prevision_social} onChange={(e) => setForm((p: any) => ({ ...p, prevision_social: e.target.value }))} /></div>
+              </div>
+              <div className="form-grid" style={{ marginTop: 10 }}><div><label className="field-label">Nota / motivo</label><input className="field-input" value={form.nota} placeholder="Ej. Aumento anual, ajuste de SDI…" onChange={(e) => setForm((p: any) => ({ ...p, nota: e.target.value }))} /></div></div>
               <div className="hstack" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
                 <button className="btn btn-outline btn-sm" onClick={() => setShowForm(false)}>Cancelar</button>
                 <button className="btn btn-primary btn-sm" onClick={guardar} disabled={saving}>{saving ? 'Guardando…' : 'Guardar movimiento'}</button>

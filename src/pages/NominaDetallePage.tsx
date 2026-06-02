@@ -11,6 +11,8 @@ import { TabAsistencias } from './tabs/TabAsistencias';
 import { TabComedor } from './tabs/TabComedor';
 import { TabFiscal } from './tabs/TabFiscal';
 import { TabPrestamosResumen } from './tabs/TabPrestamosResumen';
+import { TabDescuentoProducto } from './tabs/TabDescuentoProducto';
+import { TabBonos } from './tabs/TabBonos';
 import { ViajesPanel } from './ViajesPage';
 
 const TABS = [
@@ -18,6 +20,8 @@ const TABS = [
   { key: 'asistencias', label: 'Asistencias' },
   { key: 'viajes', label: 'Viajes' },
   { key: 'comedor', label: 'Comedor' },
+  { key: 'descproducto', label: 'Desc. producto' },
+  { key: 'bonos', label: 'Bonos' },
   { key: 'prestamos', label: 'Préstamos' },
   { key: 'fiscal', label: 'Fiscal' },
 ];
@@ -36,6 +40,9 @@ export function NominaDetallePage() {
   const [incentivos, setIncentivos] = useState<Record<string, number>>({});
   const [prestamosDesc, setPrestamosDesc] = useState<Record<string, number>>({});
   const [prestamosData, setPrestamosData] = useState<any[]>([]);
+  const [descProductoMap, setDescProductoMap] = useState<Record<string, number>>({});
+  const [bonoMap, setBonoMap] = useState<Record<string, number>>({});
+  const [viajesEmp, setViajesEmp] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
   const [unlock, setUnlock] = useState(false);
   const [pin, setPin] = useState('');
@@ -49,11 +56,13 @@ export function NominaDetallePage() {
     setSemana(sem);
 
     const esquema = sem.tipo === 'semanal' ? 'Semanal' : 'Quincenal';
-    const [empRes, nomRes, viajesRes, prestRes] = await Promise.all([
+    const [empRes, nomRes, viajesRes, prestRes, descRes, bonoRes] = await Promise.all([
       supabase.from('empleados').select('*').eq('activo', true).eq('esquema_pago', esquema).order('nombre'),
       supabase.from('nominas').select('*').eq('semana_id', sem.id),
       supabase.from('viajes').select('*').eq('semana_id', sem.id),
       supabase.from('prestamos').select('*, empleado:empleado_id(nombre,area)').eq('activo', true),
+      supabase.from('nomina_descuento_producto').select('empleado_id,monto').eq('semana_id', sem.id),
+      supabase.from('nomina_bono').select('empleado_id,monto').eq('semana_id', sem.id),
     ]);
     setEmpleados(empRes.data || []);
     const nomMap: any = {}; (nomRes.data || []).forEach((n) => (nomMap[n.empleado_id] = n)); setNominas(nomMap);
@@ -67,11 +76,16 @@ export function NominaDetallePage() {
     setAsistencias(aMap);
 
     const iMap: any = {};
+    const vEmp: any = {};
     (viajesRes.data || []).forEach((v) => {
-      if (v.chofer_id) iMap[v.chofer_id] = (iMap[v.chofer_id] || 0) + (v.incent_chofer || 0);
-      if (v.acompanante_id) iMap[v.acompanante_id] = (iMap[v.acompanante_id] || 0) + (v.incent_acompanante || 0);
+      if (v.chofer_id) { iMap[v.chofer_id] = (iMap[v.chofer_id] || 0) + (v.incent_chofer || 0); (vEmp[v.chofer_id] ||= []).push({ fecha: v.fecha, destino: v.destino, rol: 'Chofer', monto: v.incent_chofer || 0 }); }
+      if (v.acompanante_id) { iMap[v.acompanante_id] = (iMap[v.acompanante_id] || 0) + (v.incent_acompanante || 0); (vEmp[v.acompanante_id] ||= []).push({ fecha: v.fecha, destino: v.destino, rol: 'Acompañante', monto: v.incent_acompanante || 0 }); }
     });
     setIncentivos(iMap);
+    setViajesEmp(vEmp);
+
+    const dpMap: any = {}; (descRes.data || []).forEach((d: any) => { dpMap[d.empleado_id] = (dpMap[d.empleado_id] || 0) + (d.monto || 0); }); setDescProductoMap(dpMap);
+    const bMap: any = {}; (bonoRes.data || []).forEach((b: any) => { bMap[b.empleado_id] = (bMap[b.empleado_id] || 0) + (b.monto || 0); }); setBonoMap(bMap);
 
     const fechaIni = new Date(sem.fecha_inicio + 'T12:00:00');
     const dMap: any = {};
@@ -127,7 +141,7 @@ export function NominaDetallePage() {
   const calcData = empleados.map((e) => {
     const nom = nominas[e.id];
     const asist = nom ? (asistencias[nom.id] || []) : [];
-    return { empleado: e, nomina: nom, asistencias: asist, calc: calcularNomina(e, nom, asist, incentivos[e.id] || 0, prestamosDesc[e.id] || 0, semana.tipo) };
+    return { empleado: e, nomina: nom, asistencias: asist, viajes: viajesEmp[e.id] || [], calc: calcularNomina(e, nom, asist, incentivos[e.id] || 0, prestamosDesc[e.id] || 0, semana.tipo, descProductoMap[e.id] || 0, bonoMap[e.id] || 0) };
   });
 
   return (
@@ -154,6 +168,8 @@ export function NominaDetallePage() {
       {tab === 'asistencias' && <TabAsistencias semana={semana} nominas={nominas} empleados={empleados} asistencias={asistencias} canEdit={canEdit && !timbrada} />}
       {tab === 'viajes' && <ViajesPanel semana={semana} canEdit={canEdit && !timbrada} onChanged={cargar} />}
       {tab === 'comedor' && <TabComedor semana={semana} nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} />}
+      {tab === 'descproducto' && <TabDescuentoProducto semana={semana} nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} onChanged={cargar} />}
+      {tab === 'bonos' && <TabBonos semana={semana} nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} onChanged={cargar} />}
       {tab === 'prestamos' && <TabPrestamosResumen prestamos={prestamosData} descMap={prestamosDesc} semana={semana} />}
       {tab === 'fiscal' && <TabFiscal calcData={calcData} nominas={nominas} semana={semana} canEdit={canEdit && !timbrada} />}
 

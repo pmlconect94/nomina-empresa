@@ -309,4 +309,17 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
 - El cálculo sigue usando el semanal-equivalente (`diario × 7`); el SDI se calcula sobre el
   diario fiscal. Esto evita el problema de decimales al capturar diarios "feos".
 
+### 2026-06-02 — Descuento producto, bonos, vales/previsión, fiscal quincena, recibo
+- Nuevas pestañas en el detalle de nómina: **Desc. producto** (monto + N° nota, tabla
+  `nomina_descuento_producto`) y **Bonos** (monto + motivo Productividad mensual / Ventas,
+  tabla `nomina_bono`). Se reflejan en el cálculo (bono = percepción, desc. producto = deducción).
+- **Vales y previsión social** ahora se **capturan** en el alta de sueldo (sugerido 10% del
+  fiscal del periodo); se guardan en el movimiento y en `empleados`. El cálculo los usa
+  (antes los calculaba).
+- **Fiscal por periodo:** el sueldo fiscal, vales y previsión se muestran/usan por periodo
+  (quincena = ÷15 × 15), ya no en base semanal. `calcularNomina` expone `sueldoFiscalPeriodo`.
+- **Recibo de nómina:** agrega Bono y Descuento de producto, y el detalle de **días con horas
+  extra** y **viajes** (fecha, destino, rol, monto).
+- **Resumen:** letra más chica y columnas nuevas **Bono** y **Desc. prod.** (préstamos ya estaba).
+
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->
