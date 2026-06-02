@@ -322,4 +322,13 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
   extra** y **viajes** (fecha, destino, rol, monto).
 - **Resumen:** letra más chica y columnas nuevas **Bono** y **Desc. prod.** (préstamos ya estaba).
 
+### 2026-06-02 — Bonos/desc. por empleado, sin-IMSS a efectivo, fiscal con NOMEX
+- **Bonos** y **Desc. producto**: ahora es una lista de empleados con botón **"+"** por fila
+  que abre un modal para capturar monto + motivo/N° nota y ver/eliminar los registrados.
+- **Vales de despensa** agregado al resumen de la pantalla de Sueldo.
+- **Sin Alta IMSS** (switch apagado): todo el sueldo va a **efectivo**, no hay vales ni depósito,
+  y solo cuenta el sueldo real (lógica en `calcularNomina`). En la pestaña **Fiscal** esos
+  empleados salen **en gris** ("Sin Alta IMSS — todo a efectivo").
+- **Fiscal:** agregada la columna **ID NOMEX** con orden por ese ID.
+
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->
