@@ -50,6 +50,13 @@ export function calcEdad(fechaNac?: string | null): number | null {
   return edad;
 }
 
+// NOMEX con prefijo según esquema: Quincenal → Q-0000, Semanal → S-0000.
+export function nomexLabel(empleado: { id_nomex?: number | null; esquema_pago?: string | null }): string {
+  if (empleado?.id_nomex == null || empleado.id_nomex === ('' as any)) return '—';
+  const pref = empleado.esquema_pago === 'Quincenal' ? 'Q' : 'S';
+  return `${pref}-${String(empleado.id_nomex).padStart(4, '0')}`;
+}
+
 export function iniciales(nombre?: string | null): string {
   if (!nombre) return '?';
   return nombre.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();

@@ -96,6 +96,17 @@ input, select, textarea { font-family: inherit; }
 @media (hover: hover) and (pointer: fine) { .tbl tbody tr:hover td { background: var(--blue-50); } }
 .tbl-wrap { overflow-x: auto; }
 
+/* Tabla con encabezado y primera columna congelados (para tablas anchas/largas) */
+.tbl-freeze { overflow: auto; max-height: calc(100vh - 210px); }
+.tbl-freeze table { border-collapse: separate; border-spacing: 0; }
+.tbl-freeze thead th { position: sticky; top: 0; z-index: 3; }
+.tbl-freeze tbody td:first-child, .tbl-freeze tfoot td:first-child {
+  position: sticky; left: 0; z-index: 2; background: white;
+  box-shadow: 1px 0 0 var(--ink-200);
+}
+.tbl-freeze thead th:first-child { position: sticky; left: 0; z-index: 5; box-shadow: 1px 0 0 var(--ink-200); }
+.tbl-freeze tbody tr.row-inactive td:first-child { background: var(--ink-50); }
+
 /* Forms */
 .field-label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-700); margin-bottom: 6px; }
 .field-input { width: 100%; padding: 7px 10px; border-radius: var(--r-md); border: 1px solid var(--ink-300); background: white; font-size: 13px; color: var(--ink-900); transition: border-color 150ms var(--ease-soft), box-shadow 150ms var(--ease-soft), background-color 150ms var(--ease-soft); }

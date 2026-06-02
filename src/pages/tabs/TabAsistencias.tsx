@@ -59,7 +59,7 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, canEdi
       <div className="hstack" style={{ gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
         {Object.entries(COLOR).map(([c, bg]) => <span key={c} className="hstack text-xs" style={{ gap: 4 }}><i style={{ width: 12, height: 12, borderRadius: 3, background: bg, display: 'inline-block', border: '1px solid var(--ink-200)' }} />{c}</span>)}
       </div>
-      <div className="card tbl-wrap">
+      <div className="card tbl-freeze">
         <table className="tbl" style={{ fontSize: 12 }}>
           <thead>
             <tr>
@@ -73,10 +73,6 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, canEdi
                   </th>
                 );
               })}
-            </tr>
-            <tr>
-              <th></th>
-              {days.map((_, i) => <th key={i} colSpan={4} className="center text-xs" style={{ fontWeight: 500, borderLeft: '2px solid var(--ink-300)' }}>Cód · R(h) · TE(h) · Motivo</th>)}
             </tr>
           </thead>
           <tbody>

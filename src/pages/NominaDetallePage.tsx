@@ -127,7 +127,7 @@ export function NominaDetallePage() {
   const calcData = empleados.map((e) => {
     const nom = nominas[e.id];
     const asist = nom ? (asistencias[nom.id] || []) : [];
-    return { empleado: e, nomina: nom, asistencias: asist, calc: calcularNomina(e, nom, asist, incentivos[e.id] || 0, prestamosDesc[e.id] || 0) };
+    return { empleado: e, nomina: nom, asistencias: asist, calc: calcularNomina(e, nom, asist, incentivos[e.id] || 0, prestamosDesc[e.id] || 0, semana.tipo) };
   });
 
   return (

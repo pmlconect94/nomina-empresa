@@ -66,7 +66,7 @@ export function TabComedor({ semana, nominas, empleados, canEdit }: any) {
         Marca los días que cada empleado usó el comedor (solo lunes a viernes). Costo por día: <strong>{fmt(COSTO)}</strong>. Queda registrado por día para el reporte mensual.
       </p>
       {loading ? <div className="empty"><span className="spinner" /></div> : (
-        <div className="card tbl-wrap">
+        <div className="card tbl-freeze">
           <table className="tbl">
             <thead>
               <tr>

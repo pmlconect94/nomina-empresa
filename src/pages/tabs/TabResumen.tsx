@@ -1,9 +1,77 @@
 import { useState, useMemo } from 'react';
-import { fmt } from '@/lib/format';
+import { fmt, nomexLabel } from '@/lib/format';
 import { Icon } from '@/components/Icon';
+
+function Linea({ label, value, neg, bold }: any) {
+  if (!value && !bold) return null;
+  return (
+    <div className="hstack" style={{ justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--ink-100)', fontWeight: bold ? 700 : 400 }}>
+      <span className={bold ? '' : 'muted'}>{label}</span>
+      <span className={`mono ${neg ? 'neg' : ''}`}>{neg && value ? '-' : ''}{fmt(value)}</span>
+    </div>
+  );
+}
+
+function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
+  const e = d.empleado, c = d.calc;
+  const descPrestamo = c.totalDed - c.infonavit - c.comedor - c.retardoMonto;
+  return (
+    <div className="modal-backdrop" onClick={(ev) => ev.target === ev.currentTarget && onClose()}>
+      <div className="modal page-enter" style={{ maxWidth: 620 }}>
+        <div className="modal-header">
+          <div>
+            <h3 className="modal-title">{e.nombre}</h3>
+            <div className="text-xs muted">{nomexLabel(e)} · {e.puesto || '—'} · {e.area || '—'}</div>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}><Icon name="x" size={16} /></button>
+        </div>
+        <div className="modal-body">
+          <div className="grid grid-3" style={{ marginBottom: 14 }}>
+            <div className="kpi"><span className="kpi-label">Días asistencia</span><span className="kpi-value">{c.diasA}</span></div>
+            <div className="kpi"><span className="kpi-label">Faltas</span><span className="kpi-value">{c.diasF}</span></div>
+            <div className="kpi"><span className="kpi-label">Sueldo diario</span><span className="kpi-value">{fmt(c.dDR)}</span></div>
+          </div>
+
+          <div className="form-section-title">Percepciones</div>
+          <Linea label={`Asistencias (${c.diasA} días)`} value={c.asistMonto} />
+          <Linea label="Séptimo día / descansos" value={c.septimo} />
+          <Linea label={`Horas extra (${c.totalTEHrs}h)`} value={c.te} />
+          <Linea label="Viajes / incentivos" value={c.incentivos} />
+          <Linea label="Prima vacacional" value={c.primaEfectivo} />
+          <Linea label="Comisiones" value={c.comisiones} />
+          <Linea label="Retroactivos" value={c.retroactivos} />
+          <Linea label="Total percepciones" value={c.totalPerc} bold />
+
+          <div className="form-section-title">Deducciones</div>
+          <Linea label="Infonavit" value={c.infonavit} neg />
+          <Linea label="Comedor" value={c.comedor} neg />
+          <Linea label={`Retardos (${(c.totalRetHrs || 0).toFixed(2)}h)`} value={c.retardoMonto} neg />
+          <Linea label="Préstamos" value={descPrestamo} neg />
+          <Linea label="Total deducciones" value={c.totalDed} neg bold />
+
+          <div className="form-section-title">Resultado</div>
+          <div className="hstack" style={{ justifyContent: 'space-between', padding: '10px 12px', background: 'var(--green-100)', borderRadius: 'var(--r-md)', marginBottom: 14 }}>
+            <span className="fw-700">Neto a pagar</span><span className="mono fw-700" style={{ fontSize: 18 }}>{fmt(c.neto)}</span>
+          </div>
+
+          <div className="form-section-title">Distribución del pago</div>
+          <Linea label="Depósito total" value={c.deposito} bold />
+          <Linea label="Vales de despensa" value={c.vales} />
+          <Linea label="Depósito a banco" value={c.depositoBanco} />
+          <Linea label="Efectivo" value={c.efectivo} />
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-outline" onClick={() => window.print()}><Icon name="printer" size={14} /> Imprimir</button>
+          <button className="btn btn-primary" onClick={onClose}>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function TabResumen({ calcData }: { calcData: any[]; semana: any }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({ key: 'nombre', dir: 1 });
+  const [detalle, setDetalle] = useState<any>(null);
 
   const t = calcData.reduce((acc, d) => {
     acc.perc += d.calc.totalPerc; acc.ded += d.calc.totalDed; acc.neto += d.calc.neto;
@@ -70,7 +138,7 @@ export function TabResumen({ calcData }: { calcData: any[]; semana: any }) {
             {rows.map(({ empleado: e, calc: c }) => {
               const descPrestamo = c.totalDed - c.infonavit - c.comedor - c.retardoMonto;
               return (
-                <tr key={e.id}>
+                <tr key={e.id} className="clickable" style={{ cursor: 'pointer' }} onClick={() => setDetalle({ empleado: e, calc: c })} title="Ver tarjeta de nómina">
                   <td><div className="fw-600">{e.nombre}</div><div className="text-xs muted">{e.area}</div></td>
                   <td className="mono">{e.id_toka ?? '—'}</td>
                   <td className="mono">{e.id_banco ?? '—'}</td>
@@ -98,6 +166,7 @@ export function TabResumen({ calcData }: { calcData: any[]; semana: any }) {
           </tfoot>
         </table>
       </div>
+      {detalle && <ReciboModal d={detalle} onClose={() => setDetalle(null)} />}
     </div>
   );
 }

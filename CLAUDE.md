@@ -289,4 +289,15 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
 - **Resumen:** columnas **ID Toka** e **ID Banco** + encabezados ordenables (nombre, IDs, neto,
   depósito, efectivo).
 
+### 2026-06-02 — Congelado de tablas, NOMEX con letra, regla quincena, recibo
+- **Scroll:** clase `.tbl-freeze` congela el encabezado y la **columna de nombres** en
+  asistencias y comedor (y quita una fila de encabezado en asistencias).
+- **NOMEX con prefijo** según esquema: Quincenal → `Q-0000`, Semanal → `S-0000`
+  (`nomexLabel` en `lib/format`). Se muestra en catálogo y tarjeta.
+- **Cálculo quincena:** descansos pagados = `díasQueCuentan × 2/13` (13 laborables + 2
+  descansos). Ej.: 10 días trabajados → 1.54 de descanso. Semanal sigue 1/6. `calcularNomina`
+  ahora recibe el `tipo`.
+- **Recibo / tarjeta de nómina:** clic en un empleado del Resumen abre el desglose completo
+  (percepciones, deducciones, neto, distribución) con botón Imprimir.
+
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->

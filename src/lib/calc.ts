@@ -33,7 +33,7 @@ export function descuentoPrestamoMonto(monto: number, tipo: string): number {
   return tipo === 'semanal' ? monto * 0.1 : monto * 0.2;
 }
 
-export function calcularNomina(empleado: any, nomina: any, asistencias: any[], incentivosViaje: number, descuentoPrestamo: number) {
+export function calcularNomina(empleado: any, nomina: any, asistencias: any[], incentivosViaje: number, descuentoPrestamo: number, tipo: string = 'semanal') {
   const sdFiscal = empleado.sd_fiscal || 0;
   const sdReal = empleado.sd_real || 0;
   const dDR = sdReal / 7;
@@ -50,9 +50,12 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   const totalRetHrs = dias.reduce((s, d) => s + (parseFloat(d.retardo_min) || 0) / 60, 0);
 
   const asistMonto = diasA * dDR;
-  // Séptimo día proporcional: 1 día de descanso pagado por cada 6 que cuentan.
-  // Semana completa (6) = 1 séptimo; quincena completa (12) = 2 séptimos.
-  const septimo = dDR * (diasCuentan / 6);
+  // Descansos pagados según el esquema:
+  //  - Semanal: 6 días laborables + 1 descanso → factor 1/6.
+  //  - Quincenal: 13 días laborables + 2 descansos → factor 2/13.
+  // Ej. quincenal con 10 días trabajados: 10 × 2/13 = 1.54 días de descanso.
+  const descansoFactor = tipo === 'quincenal' ? (2 / 13) : (1 / 6);
+  const septimo = dDR * (diasCuentan * descansoFactor);
   const te = totalTEHrs * (dDR / 8) * 2;
   const primaFiscal = diasV > 0 ? dDF * diasV * 0.25 : 0;
   const primaEfectivo = diasV > 0 ? dDR * diasV * 0.25 : 0;

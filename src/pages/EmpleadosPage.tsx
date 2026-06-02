@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { calcEdad, fmtFecha } from '@/lib/format';
+import { calcEdad, fmtFecha, nomexLabel } from '@/lib/format';
 import { Icon } from '@/components/Icon';
 import { PageEnter } from '@/components/motion';
 import { SueldoModal } from './SueldoModal';
@@ -151,7 +151,7 @@ export function EmpleadosPage() {
           <tbody>
             {lista.map((e) => (
               <tr key={e.id} className={!e.activo ? 'row-inactive' : ''}>
-                <td className="mono">{e.id_nomex || e.id_toka || '—'}</td>
+                <td className="mono fw-600">{nomexLabel(e)}</td>
                 <td><div className="fw-600">{e.nombre}</div><div className="text-xs muted">{e.correo || ''}</div></td>
                 <td><span className="badge badge-gray">{e.area || '—'}</span></td>
                 <td className="muted">{e.puesto || '—'}</td>
@@ -192,7 +192,7 @@ export function EmpleadosPage() {
             </div>
             <div className="modal-body">
               <div className="form-section-title">Identificadores</div>
-              <div className="grid grid-3"><Campo label="ID Nomex" value={verEmp.id_nomex} /><Campo label="ID Banco" value={verEmp.id_banco} /><Campo label="ID Toka" value={verEmp.id_toka} /></div>
+              <div className="grid grid-3"><Campo label="NOMEX" value={nomexLabel(verEmp)} /><Campo label="ID Banco" value={verEmp.id_banco} /><Campo label="ID Toka" value={verEmp.id_toka} /></div>
               <div className="form-section-title">Datos generales</div>
               <div className="grid grid-3">
                 <Campo label="Jefe inmediato" value={verEmp.jefe_inmediato} /><Campo label="Fecha de ingreso" value={fmtFecha(verEmp.fecha_ingreso)} /><Campo label="Esquema" value={verEmp.esquema_pago} />
