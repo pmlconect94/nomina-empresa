@@ -94,47 +94,69 @@ npx vercel deploy --prod --yes
 > NO se reasigna solo. Si la web sigue mostrando la versión vieja, reasignar el alias:
 > `npx vercel alias set <url-del-deploy>.vercel.app nomina-empresa.vercel.app`
 
-## Trabajar desde otra computadora (setup nuevo)
+## Trabajar desde otra computadora (setup nuevo) — LEER AL CAMBIAR DE EQUIPO
 
 ```bash
+# 0) Node.js NO viene preinstalado en Windows. Instalar LTS y reabrir la terminal:
+winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements
+#    (verifica: node --version  /  npm --version  →  v24.x / 11.x)
+
+# 1) Clonar y dependencias
 git clone https://github.com/pmlconect94/nomina-empresa.git
 cd nomina-empresa
-npm install
+npm install                # ~157 paquetes
 
-# Recrear el .env (NO está en git). Bajarlo de Vercel:
-npx vercel link            # elegir team ddlpml2-6030s-projects / proyecto nomina-empresa
+# 2) Identidad de git de este proyecto (los commits van como ventas.lizarraga2):
+git config user.name "pml-diego"
+git config user.email "ventas.lizarraga2@gmail.com"
+
+# 3) Recrear el .env (NO está en git). Bajarlo de Vercel:
+npx vercel login           # cuenta ddlpml2-6030 (abre el navegador)
+npx vercel link --yes --project nomina-empresa   # team ddlpml2-6030s-projects
 npx vercel env pull .env   # crea .env con VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_MASTER_PIN
 
-npm run dev
+# 4) Correr
+npm run dev                # http://localhost:5173
 ```
 
-> El `.env` (con la anon key y el PIN) se obtiene de Vercel con `vercel env pull`.
-> No se guardan valores reales en este repo (es público).
+> - El `.env` (anon key + PIN) se obtiene de Vercel con `vercel env pull` (no se guarda en el repo público).
+> - **Datos:** viven en Supabase (proyecto `crm-pml`, **schema `nomina`**). No importa desde qué
+>   compu trabajes: la base es la misma. Para tocar la BD directo, conectar el **MCP de Supabase**
+>   a la cuenta del dueño (o usar el dashboard).
+> - **Deploy:** push a `main` del repo público → auto-deploy a producción en Vercel. No hace falta
+>   `vercel deploy` por CLI (evita el problema del alias del dominio corto).
+> - Login de la app: `ddl.pml2@gmail.com` (admin).
 
 ---
 
-## Arquitectura (`src/`)
+## Arquitectura (`src/`) — Vite + TypeScript (.tsx)
 
 ```
-App.js                      sesión + rol; decide Login / Main / "acceso pendiente"
+main.tsx / App.tsx          router + AuthProvider; rutas /app/*
 pages/
-  Login.js                  email + contraseña (Supabase Auth)
-  Main.js                   header, navegación, botón flotante de Configuración (admin)
-  RRHH.js                   tabs: Nóminas / Empleados / Préstamos
-  NominaLista.js            crear / listar / eliminar nóminas (semanas)
-  NominaDetalle.js          orquesta las 6 pestañas + guardar/timbrar + desbloquear
-  Empleados.js              catálogo CRUD, búsqueda y ordenamiento
-  Prestamos.js              alta, archivar, avance de pago
-  Viajes.js                 incentivos chofer/acompañante por tramo horario
-  Usuarios.js               gestión de usuarios (vía Edge Function admin-users)
-  Configuracion.js          contenedor de Usuarios
+  LoginPage.tsx             email + contraseña (Supabase Auth)
+  DashboardPage.tsx         inicio (KPIs básicos)
+  EmpleadosPage.tsx         catálogo CRUD (orden por ID Banco), Ver/Editar, Alta IMSS, botón SUELDO
+  SueldoModal.tsx           sueldos por movimientos (alta/modif/baja) + descuentos permanentes (candado)
+  NominasPage.tsx           crear / listar / eliminar nóminas; sugiere periodo semanal/quincenal
+  NominaDetallePage.tsx     orquesta las pestañas, carga datos, calcula, guardar/desbloquear (PIN)
+  PrestamosPage.tsx         alta, abonos fuera de nómina, archivar, avance
+  ViajesPage.tsx            ViajesPanel: incentivos por tramo + viajes retroactivos + validación con HE
+  UsuariosPage.tsx          gestión de usuarios (Edge Function admin-users)
   tabs/
-    TabResumen.js           percepciones, deducciones, neto, distribución del pago
-    TabAsistencias.js       captura por día (código, retardo, horas extra, motivo)
-    TabComedor.js           días de comedor × costo fijo
-    TabPrestamosResumen.js  préstamos con descuento aplicable esta nómina
-    TabFiscal.js            ISR / IMSS / depósito total / vales
-lib/supabase.js             cliente Supabase + constantes + lógica de cálculo
+    TabResumen.tsx          percepciones/deducciones/neto/distribución + recibo (tarjeta) imprimible
+    TabAsistencias.tsx      captura por día (código/retardo/HE/motivo), Todos A·D, leyenda incidencias
+    TabComedor.tsx          calendario L-V (quincena = 10 días); guarda por día
+    TabFiscal.tsx           ISR/IMSS/depósito/vales (orden por ID NOMEX)
+    TabRetroactivos.tsx     HE retroactivas (horas + propósito + día de la semana anterior)
+    TabDescuentoProducto.tsx / TabBonos.tsx   por empleado con botón "+"; Bonos incluye permanentes
+    TabPrestamosResumen.tsx descuento de préstamo aplicable esta nómina
+lib/
+  supabase.ts               cliente Supabase (db.schema = 'nomina')
+  calc.ts                   TODA la lógica de cálculo (calcularNomina), tabuladores viajes, SDI, motivos
+  auth.tsx                  AuthProvider, rol, reauth (candado de sueldos)
+  format.ts                 fmt, fmtFecha, toISO, nomexLabel, etc.
+components/                 Sidebar, Topbar, Icon, motion
 ```
 
 ## Modelo de datos (Postgres, schema **`nomina`** del proyecto Supabase `crm-pml`)
@@ -148,25 +170,39 @@ Tablas de **nómina** (las del WMS NO se tocan): `empleados` (ficha completa + `
 `empleado_sueldo_movimientos` (alta/modif/baja con vigencias, sueldo periodo/diario real y
 fiscal, SDI, vales, previsión — el último vigente alimenta el cálculo), `empleado_descuentos`
 (Infonavit/Fonacot/etc. con historial), `empleado_sueldo_historial` (legado), `comedor_registro`
-(comedor por día lun-vie, para reporte mensual), `nomina_descuento_producto`, `nomina_bono`. Todas con RLS:
-lectura = autenticados; escritura = `admin`/`editor` (`usuarios_roles`: escritura solo `admin`).
-Función helper `get_user_rol()` usada por las políticas.
+(comedor por día lun-vie, para reporte mensual), `nomina_descuento_producto`, `nomina_bono`,
+`nomina_retroactivo` (HE retroactivas: `horas`, `descripcion`=propósito, `periodo_origen`=día),
+`bono_permanente` (bonos por default por empleado) + `bono_permanente_excluido` (exclusiones por
+semana). `viajes` tiene `retroactivo` (bool). **Vista** `v_incidencias` (KPIs: días por código + HE
++ retardo, por semana/empleado). Todas con RLS: lectura = autenticados; escritura = `admin`/`editor`
+(`usuarios_roles`: escritura solo `admin`). Función helper `get_user_rol()` (apunta a
+`nomina.usuarios_roles`) usada por las políticas.
 
-## Reglas de negocio clave (`lib/supabase.js`)
+## Reglas de negocio clave (toda la lógica en **`lib/calc.ts` → `calcularNomina`**)
 
-- **Salario diario:** `sd_real / 7` (real) y `sd_fiscal / 7` (fiscal).
-- **Vales / previsión social:** 10% del `sd_fiscal` cada uno.
-- **Séptimo día:** `dDR * min(diasQueCuentan, 6) / 6` (cuentan A, V, PCG).
-- **Horas extra:** `horas * (dDR/8) * 2` (dobles).
-- **Prima vacacional:** 25% sobre días de vacaciones (V).
-- **Viajes:** incentivo por tramo de hora de llegada (tablas `TAB_CHOFER`/`TAB_ACOMP`);
-  "se quedó a dormir" = pago máximo + reinicio de tabular.
-- **Comedor:** $30 por día, máximo 5 días.
-- **Préstamos:** descuento 10% semanal / 20% quincenal del monto; primer descuento
-  **una semana después** de la fecha del préstamo. Al timbrar se descuenta del saldo y se
-  guarda historial en `prestamo_descuentos` (reversible al desbloquear con PIN).
+- **Salario diario:** `dDR = sd_real / 7` (real) y `dDF = sd_fiscal / 7` (fiscal). `sd_*` es el
+  semanal-equivalente (diario × 7); el diario sale del sueldo del periodo ÷15 (quincena) o ÷7 (semana).
+- **Vales / previsión social:** capturados en el alta de sueldo (sugerido 10% del fiscal del periodo).
+- **Incidencias (pago por código):** **se pagan** (trato asistencia) A, **D**, V, PCG, TXT; **no se
+  pagan** (trato falta, restan) **F**, PSG, SUS. `asistMonto = díasPagados[A,V,PCG,TXT] × dDR`; el
+  **Descanso (D) se paga vía el séptimo** (no entra en asistMonto para no duplicar).
+- **Séptimo día:** `dDR × (díasQueCuentan × factor)`; factor = `1/6` semanal, `2/13` quincenal.
+- **Horas extra:** `horas × (dDR/8) × 2` (dobles). Motivos en `MOTIVOS_TE` (incluye Junta/Planta/Desayuno).
+- **Retardos:** se capturan **en horas**; descuento = `horas × (dDR/8)` (valor por hora).
+- **Prima vacacional:** ❌ **NO se suma** al neto (se quitó). V paga el día completo, sin el 25%.
+- **Viajes:** incentivo por tramo de hora de llegada (`TAB_CHOFER`/`TAB_ACOMP`); "se quedó a dormir"
+  = pago máx + reinicio. **Viaje retroactivo** (fecha ≤7 días antes del periodo) cuenta en Retroactivo.
+- **Retroactivos:** viajes retro + **HE retro** (pestaña "HE retro": horas + propósito + día de la
+  semana anterior) → suman a la columna/total **Retroactivo**.
+- **Comedor:** $30 por día; semana 5 días, **quincena 10 días** (el 11º pasa a la otra quincena).
+- **Préstamos:** descuento **10% del monto** (semanal **y** quincenal); primer descuento **una semana
+  después** de la fecha del préstamo. **Abonos fuera de nómina** reducen el saldo (el % de descuento
+  no cambia). Al timbrar se descuenta del saldo y se guarda historial en `prestamo_descuentos`
+  (reversible al desbloquear con PIN).
+- **Bonos permanentes:** definidos por empleado, aplican por **default cada nómina**; se pueden
+  **excluir por periodo** (tabla `bono_permanente` + exclusiones `bono_permanente_excluido`).
 - **Distribución del pago:** `deposito_banco = max(0, deposito_total - vales)`;
-  `efectivo = max(0, neto - deposito_total)`.
+  `efectivo = max(0, neto - deposito_total)`. Sin Alta IMSS → todo a efectivo.
 
 ## Roles
 
