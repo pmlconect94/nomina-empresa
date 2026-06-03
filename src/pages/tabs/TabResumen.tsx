@@ -41,7 +41,6 @@ function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
           <Linea label="Bono" value={c.bono} />
           <Linea label="Retroactivo · viajes" value={c.retroactivo} />
           <Linea label={`Retroactivo · horas extra (${c.teRetroHrs}h)`} value={c.teRetro} />
-          <Linea label="Prima vacacional" value={c.primaEfectivo} />
           <Linea label="Comisiones" value={c.comisiones} />
           <Linea label="Retroactivos" value={c.retroactivos} />
           <Linea label="Total percepciones" value={c.totalPerc} bold />

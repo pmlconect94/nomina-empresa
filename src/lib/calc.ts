@@ -87,7 +87,7 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   const retardoMonto = totalRetHrs * (dDR / 8); // por hora (jornada 8h), no salario diario completo
   const prestDesc = descuentoPrestamo || 0;
 
-  const totalPerc = asistMonto + septimo + te + teRetro + primaEfectivo + incentivos + (bono || 0) + (retroactivo || 0)
+  const totalPerc = asistMonto + septimo + te + teRetro + incentivos + (bono || 0) + (retroactivo || 0)
     + (nomina?.comisiones || 0) + (nomina?.retroactivos || 0) + (nomina?.evaluacion || 0);
 
   const infonavit = parseFloat(nomina?.infonavit || empleado.infonavit || 0);
