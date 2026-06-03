@@ -34,8 +34,41 @@ export function ViajesPanel({ semana, canEdit, onChanged }: any) {
 
   async function guardar() {
     if (!form.chofer_id && !form.acompanante_id) { toast.error('Selecciona chofer o acompañante'); return; }
-    await supabase.from('viajes').insert({ semana_id: semana.id, fecha: form.fecha || null, destino: form.destino, cliente: form.cliente, vehiculo: form.vehiculo, chofer_id: form.chofer_id || null, acompanante_id: form.acompanante_id || null, hora_salida: form.hora_salida || null, hora_llegada: form.hora_llegada || null, se_quedo_dormir: form.se_quedo_dormir, incent_chofer: incent.chofer, incent_acompanante: incent.acomp });
-    setForm({ ...EMPTY }); setIncent({ chofer: 0, acomp: 0, tramo: null }); toast.success('Viaje agregado'); fetchViajes(); onChanged?.();
+
+    // Validación de fecha: dentro del periodo = normal; hasta 7 días antes = retroactivo (avisa);
+    // más viejo o posterior al periodo = bloqueado.
+    let retro = false;
+    if (form.fecha) {
+      const f = new Date(form.fecha + 'T12:00:00');
+      const ini = new Date(semana.fecha_inicio + 'T12:00:00');
+      const fin = new Date(semana.fecha_fin + 'T12:00:00');
+      const DIA = 86400000;
+      if (f > fin) { toast.error('La fecha es posterior al periodo de esta nómina'); return; }
+      if (f < ini) {
+        const diasAntes = Math.round((ini.getTime() - f.getTime()) / DIA);
+        if (diasAntes > 7) { toast.error('Solo se permiten viajes de hasta 1 semana antes del periodo'); return; }
+        if (!confirm(`Ese viaje (${form.fecha}) no corresponde a esta semana. ¿Darlo de alta y que el monto vaya a Retroactivos?`)) return;
+        retro = true;
+      }
+    }
+
+    // Validación cruzada: si un viaje normal cae en un día con horas extra capturadas, avisar.
+    if (!retro && form.fecha) {
+      const empIds = [form.chofer_id, form.acompanante_id].filter(Boolean);
+      const { data: noms } = await supabase.from('nominas').select('id,empleado_id').eq('semana_id', semana.id).in('empleado_id', empIds);
+      const nomIds = (noms || []).map((n: any) => n.id);
+      if (nomIds.length) {
+        const { data: he } = await supabase.from('asistencias').select('nomina_id').in('nomina_id', nomIds).eq('fecha', form.fecha).gt('te_horas', 0);
+        if (he && he.length) {
+          const nomEmp: any = {}; (noms || []).forEach((n: any) => (nomEmp[n.id] = n.empleado_id));
+          const nombres = [...new Set(he.map((h: any) => empleados.find((e) => e.id === nomEmp[h.nomina_id])?.nombre).filter(Boolean))];
+          if (!confirm(`PARA ESTE DÍA ${nombres.join(' y ')} tiene horas extra. ¿Seguro que llegó a la hora del viaje?`)) return;
+        }
+      }
+    }
+
+    await supabase.from('viajes').insert({ semana_id: semana.id, fecha: form.fecha || null, destino: form.destino, cliente: form.cliente, vehiculo: form.vehiculo, chofer_id: form.chofer_id || null, acompanante_id: form.acompanante_id || null, hora_salida: form.hora_salida || null, hora_llegada: form.hora_llegada || null, se_quedo_dormir: form.se_quedo_dormir, incent_chofer: incent.chofer, incent_acompanante: incent.acomp, retroactivo: retro });
+    setForm({ ...EMPTY }); setIncent({ chofer: 0, acomp: 0, tramo: null }); toast.success(retro ? 'Viaje retroactivo agregado' : 'Viaje agregado'); fetchViajes(); onChanged?.();
   }
   async function eliminar(id: string) { if (!confirm('¿Eliminar viaje?')) return; await supabase.from('viajes').delete().eq('id', id); fetchViajes(); onChanged?.(); }
 
@@ -80,7 +113,7 @@ export function ViajesPanel({ semana, canEdit, onChanged }: any) {
           <tbody>
             {viajes.map((v) => (
               <tr key={v.id}>
-                <td className="muted">{v.fecha || '—'}</td><td>{v.destino || '—'}</td><td>{v.cliente || '—'}</td>
+                <td className="muted">{v.fecha || '—'}{v.retroactivo && <span className="badge badge-amber" style={{ marginLeft: 4 }}>Retro</span>}</td><td>{v.destino || '—'}</td><td>{v.cliente || '—'}</td>
                 <td>{v.chofer?.nombre || '—'}</td><td>{v.acomp?.nombre || '—'}</td>
                 <td className="mono">{v.hora_salida || '—'}</td><td className="mono">{v.hora_llegada || '—'}{v.se_quedo_dormir ? ' 🌙' : ''}</td>
                 <td className="right mono blue">{fmt(v.incent_chofer || 0)}</td><td className="right mono blue">{fmt(v.incent_acompanante || 0)}</td>

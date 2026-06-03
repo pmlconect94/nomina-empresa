@@ -6,7 +6,7 @@ import { fmt, toISO } from '@/lib/format';
 const MESES_C = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const COLOR: Record<string, string> = { A: '#EAF3DE', F: '#FCEBEB', D: '#F1EFE8', V: '#E6F1FB', PSG: '#FAEEDA', PCG: '#EEEDFE', TXT: '#E1F5EE', SUS: '#FCEBEB' };
 
-export function TabAsistencias({ semana, nominas, empleados, asistencias, canEdit }: any) {
+export function TabAsistencias({ semana, nominas, empleados, asistencias, viajeDias, canEdit }: any) {
   const [local, setLocal] = useState<Record<string, any>>({});
 
   useEffect(() => {
@@ -40,6 +40,14 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, canEdi
   async function update(nomId: string, i: number, fecha: string, campo: string, valor: any) {
     const key = `${nomId}_${i}`;
     const ex = local[key];
+    // Validación: si este día ya tiene un viaje para el empleado, avisar al capturar HE.
+    if (campo === 'te_horas' && (valor || 0) > 0 && (ex?.te_horas || 0) <= 0) {
+      const hl = viajeDias?.[`${nomId}|${fecha}`];
+      if (hl !== undefined) {
+        const cuando = hl ? `que llegó a las ${hl}` : 'registrado';
+        if (!confirm(`Este día ya tiene un VIAJE ${cuando}. ¿Seguro que también lleva horas extra?`)) return;
+      }
+    }
     const upd = { ...(ex || { nomina_id: nomId, dia_index: i, fecha, codigo: '', te_horas: 0, te_motivo: '', retardo_min: 0 }), [campo]: valor };
     setLocal((p) => ({ ...p, [key]: upd }));
     if (!asistencias[nomId]) asistencias[nomId] = [];

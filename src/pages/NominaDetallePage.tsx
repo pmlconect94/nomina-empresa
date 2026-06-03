@@ -23,7 +23,7 @@ const TABS = [
   { key: 'comedor', label: 'Comedor' },
   { key: 'descproducto', label: 'Desc. producto' },
   { key: 'bonos', label: 'Bonos' },
-  { key: 'retroactivos', label: 'Retroactivos' },
+  { key: 'retroactivos', label: 'HE retro' },
   { key: 'prestamos', label: 'Préstamos' },
   { key: 'fiscal', label: 'Fiscal' },
 ];
@@ -44,8 +44,10 @@ export function NominaDetallePage() {
   const [prestamosData, setPrestamosData] = useState<any[]>([]);
   const [descProductoMap, setDescProductoMap] = useState<Record<string, number>>({});
   const [bonoMap, setBonoMap] = useState<Record<string, number>>({});
-  const [retroMap, setRetroMap] = useState<Record<string, number>>({});
+  const [retroIncentMap, setRetroIncentMap] = useState<Record<string, number>>({}); // incentivo de viajes retro
+  const [heRetroMap, setHeRetroMap] = useState<Record<string, number>>({});          // horas extra retro
   const [viajesEmp, setViajesEmp] = useState<Record<string, any[]>>({});
+  const [viajeDias, setViajeDias] = useState<Record<string, string>>({});             // "nomId|fecha" -> hora_llegada
   const [loading, setLoading] = useState(true);
   const [unlock, setUnlock] = useState(false);
   const [pin, setPin] = useState('');
@@ -66,7 +68,7 @@ export function NominaDetallePage() {
       supabase.from('prestamos').select('*, empleado:empleado_id(nombre,area)').eq('activo', true),
       supabase.from('nomina_descuento_producto').select('empleado_id,monto').eq('semana_id', sem.id),
       supabase.from('nomina_bono').select('empleado_id,monto').eq('semana_id', sem.id),
-      supabase.from('nomina_retroactivo').select('empleado_id,monto').eq('semana_id', sem.id),
+      supabase.from('nomina_retroactivo').select('empleado_id,horas').eq('semana_id', sem.id),
     ]);
     setEmpleados(empRes.data || []);
     const nomMap: any = {}; (nomRes.data || []).forEach((n) => (nomMap[n.empleado_id] = n)); setNominas(nomMap);
@@ -79,18 +81,24 @@ export function NominaDetallePage() {
     }
     setAsistencias(aMap);
 
-    const iMap: any = {};
+    const iMap: any = {};        // incentivo de viajes normales (bucket Viajes)
+    const riMap: any = {};       // incentivo de viajes retroactivos (bucket Retroactivo)
     const vEmp: any = {};
+    const vDias: any = {};       // "nomId|fecha" -> hora_llegada (para validación con HE)
     (viajesRes.data || []).forEach((v) => {
-      if (v.chofer_id) { iMap[v.chofer_id] = (iMap[v.chofer_id] || 0) + (v.incent_chofer || 0); (vEmp[v.chofer_id] ||= []).push({ fecha: v.fecha, destino: v.destino, rol: 'Chofer', monto: v.incent_chofer || 0 }); }
-      if (v.acompanante_id) { iMap[v.acompanante_id] = (iMap[v.acompanante_id] || 0) + (v.incent_acompanante || 0); (vEmp[v.acompanante_id] ||= []).push({ fecha: v.fecha, destino: v.destino, rol: 'Acompañante', monto: v.incent_acompanante || 0 }); }
+      const dest = v.retroactivo ? riMap : iMap;
+      if (v.chofer_id) { dest[v.chofer_id] = (dest[v.chofer_id] || 0) + (v.incent_chofer || 0); (vEmp[v.chofer_id] ||= []).push({ fecha: v.fecha, destino: v.destino, rol: 'Chofer', monto: v.incent_chofer || 0, retro: v.retroactivo }); }
+      if (v.acompanante_id) { dest[v.acompanante_id] = (dest[v.acompanante_id] || 0) + (v.incent_acompanante || 0); (vEmp[v.acompanante_id] ||= []).push({ fecha: v.fecha, destino: v.destino, rol: 'Acompañante', monto: v.incent_acompanante || 0, retro: v.retroactivo }); }
+      [v.chofer_id, v.acompanante_id].forEach((eid) => { if (eid && nomMap[eid] && v.fecha) vDias[`${nomMap[eid].id}|${v.fecha}`] = v.hora_llegada || ''; });
     });
     setIncentivos(iMap);
+    setRetroIncentMap(riMap);
     setViajesEmp(vEmp);
+    setViajeDias(vDias);
 
     const dpMap: any = {}; (descRes.data || []).forEach((d: any) => { dpMap[d.empleado_id] = (dpMap[d.empleado_id] || 0) + (d.monto || 0); }); setDescProductoMap(dpMap);
     const bMap: any = {}; (bonoRes.data || []).forEach((b: any) => { bMap[b.empleado_id] = (bMap[b.empleado_id] || 0) + (b.monto || 0); }); setBonoMap(bMap);
-    const rMap: any = {}; (retroRes.data || []).forEach((r: any) => { rMap[r.empleado_id] = (rMap[r.empleado_id] || 0) + (r.monto || 0); }); setRetroMap(rMap);
+    const hrMap: any = {}; (retroRes.data || []).forEach((r: any) => { hrMap[r.empleado_id] = (hrMap[r.empleado_id] || 0) + (r.horas || 0); }); setHeRetroMap(hrMap);
 
     const fechaIni = new Date(sem.fecha_inicio + 'T12:00:00');
     const dMap: any = {};
@@ -146,7 +154,7 @@ export function NominaDetallePage() {
   const calcData = empleados.map((e) => {
     const nom = nominas[e.id];
     const asist = nom ? (asistencias[nom.id] || []) : [];
-    return { empleado: e, nomina: nom, asistencias: asist, viajes: viajesEmp[e.id] || [], calc: calcularNomina(e, nom, asist, incentivos[e.id] || 0, prestamosDesc[e.id] || 0, semana.tipo, descProductoMap[e.id] || 0, bonoMap[e.id] || 0, retroMap[e.id] || 0) };
+    return { empleado: e, nomina: nom, asistencias: asist, viajes: viajesEmp[e.id] || [], calc: calcularNomina(e, nom, asist, incentivos[e.id] || 0, prestamosDesc[e.id] || 0, semana.tipo, descProductoMap[e.id] || 0, bonoMap[e.id] || 0, retroIncentMap[e.id] || 0, heRetroMap[e.id] || 0) };
   });
 
   return (
@@ -170,7 +178,7 @@ export function NominaDetallePage() {
       </div>
 
       {tab === 'resumen' && <TabResumen calcData={calcData} semana={semana} />}
-      {tab === 'asistencias' && <TabAsistencias semana={semana} nominas={nominas} empleados={empleados} asistencias={asistencias} canEdit={canEdit && !timbrada} />}
+      {tab === 'asistencias' && <TabAsistencias semana={semana} nominas={nominas} empleados={empleados} asistencias={asistencias} viajeDias={viajeDias} canEdit={canEdit && !timbrada} />}
       {tab === 'viajes' && <ViajesPanel semana={semana} canEdit={canEdit && !timbrada} onChanged={cargar} />}
       {tab === 'comedor' && <TabComedor semana={semana} nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} />}
       {tab === 'descproducto' && <TabDescuentoProducto semana={semana} nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} onChanged={cargar} />}

@@ -379,6 +379,23 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
   pagados en esta nómina. Tabla **`nomina_retroactivo`** (tipo viaje/horas_extra, periodo_origen,
   descripcion, monto). Es **percepción**: `calcularNomina` recibe `retroactivo` y lo suma; aparece
   en el recibo y en una columna **Retro.** del Resumen. Captura por empleado con botón **"+"**.
+
+### 2026-06-02 — Retroactivos rediseñados (viajes en Viajes, HE retro, validación día)
+- **Viajes retroactivos:** se dan de alta en la pantalla **Viajes**, no en una hoja aparte. Regla
+  de fecha al guardar: dentro del periodo = normal; **hasta 7 días antes** del inicio = avisa y, si
+  aceptas, se marca `viajes.retroactivo=true` (badge **Retro** en la lista); fecha más vieja o
+  posterior al periodo = **bloqueada**. El incentivo de un viaje retro **no** cuenta en el bucket
+  Viajes sino en **Retroactivo** (columna **Retro.** del Resumen).
+- **HE retroactivas:** la hoja antes "Retroactivos" ahora es **"HE retro"**: capturas **horas +
+  propósito** (MOTIVOS_TE) y el monto = `horas × valor hora × 2` se **suma al total de Horas extra**
+  (no a un bucket aparte). Se guarda en `nomina_retroactivo.horas` (nueva columna).
+- **Validación viaje ↔ HE el mismo día (ambos sentidos):** al guardar un **viaje** en un día con
+  horas extra del chofer/acompañante → "PARA ESTE DÍA … tiene horas extra, ¿seguro que llegó a la
+  hora del viaje?"; al capturar **HE** en un día que ya tiene viaje → "este día ya tiene un viaje
+  que llegó a las …, ¿seguro?". Aceptar = guarda igual.
+- **calc:** `calcularNomina` recibe `retroactivo` (incentivo viaje retro → bucket Retroactivo) y
+  `horasExtraRetro` (→ se suma a `te`). Expone `te`, `teRetro`, `teRetroHrs`.
+- **DB (aditivo):** `viajes.retroactivo` (bool) y `nomina_retroactivo.horas` (numeric).
 - **Fiscal:** agregada la columna **ID NOMEX** con orden por ese ID.
 
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->
