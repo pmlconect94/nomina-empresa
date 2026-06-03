@@ -409,6 +409,21 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
   pantalla SUELDO: por empleado se cerró la vigencia previa, se insertó un movimiento de **alta**
   (sueldo periodo real/fiscal, diario ÷15/÷7, SDI por antigüedad, vales, previsión) y se sincronizó
   la ficha (`sd_real/sd_fiscal` = diario×7, vales, previsión, **ID Toka/Banco/NOMEX**, esquema).
+
+### 2026-06-02 — Cambios de forma (orden por ID Banco, columnas, asistencias)
+- **Orden por ID Banco por defecto** en TODAS las listas de empleados (menor→mayor): Resumen,
+  Asistencias, Comedor, Bonos, Desc. producto, HE retro, Viajes (selects), Préstamos y catálogo
+  (`NominaDetallePage` carga `empleados` ordenados por `id_banco`; Resumen/Asistencias tienen su
+  propio sort con default id_banco).
+- **Fiscal** ordena por defecto por **ID NOMEX** ascendente.
+- **Resumen:** se quitó la columna **ID Toka**; **ID Banco** va antes del nombre; se quitaron las
+  columnas **Asist.** y **7mo día** de la tabla — ahora se muestran **combinadas en un solo valor
+  ("Asistencias + séptimo día") solo en la tarjeta de nómina** (recibo).
+- **Asistencias:** ID Banco a la izquierda del nombre (misma celda congelada) + orden clicable;
+  botón **"✓ Todos A"** ahora junto al día; etiquetas **Cód / Ret / T.E. / Mot** sobre los inputs;
+  en **domingos** el botón es **"✓ Todos D"** (marca descanso) en vez de Todos A.
+- **Orden de pestañas:** Resumen · Asistencias · Viajes · Comedor · Fiscal · HE retro ·
+  Desc. producto · Bonos · Préstamos.
 - **Fiscal:** agregada la columna **ID NOMEX** con orden por ese ID.
 
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->

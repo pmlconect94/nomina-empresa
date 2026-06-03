@@ -17,7 +17,7 @@ export function PrestamosPage() {
 
   useEffect(() => { fetchP(); fetchE(); }, []);
   async function fetchP() { const { data } = await supabase.from('prestamos').select('*, empleado:empleado_id(nombre,area)').order('created_at', { ascending: false }); setPrestamos(data || []); }
-  async function fetchE() { const { data } = await supabase.from('empleados').select('id,nombre').eq('activo', true).order('nombre'); setEmpleados(data || []); }
+  async function fetchE() { const { data } = await supabase.from('empleados').select('id,nombre,id_banco').eq('activo', true).order('id_banco', { ascending: true, nullsFirst: false }); setEmpleados(data || []); }
 
   async function guardar() {
     if (!form.empleado_id || !form.monto || !form.fecha_prestamo) return;

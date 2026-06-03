@@ -4,7 +4,7 @@ import { fmt, nomexLabel } from '@/lib/format';
 
 export function TabFiscal({ calcData, nominas, canEdit }: any) {
   const [vals, setVals] = useState<Record<string, number>>({});
-  const [sortNomex, setSortNomex] = useState<1 | -1 | 0>(0); // 0 = sin ordenar
+  const [sortNomex, setSortNomex] = useState<1 | -1 | 0>(1); // 1 = ID NOMEX ascendente por defecto
 
   const getVal = (empId: string, campo: string) => {
     const k = `${empId}_${campo}`;
@@ -21,7 +21,7 @@ export function TabFiscal({ calcData, nominas, canEdit }: any) {
   const rows = useMemo(() => {
     if (!sortNomex) return calcData;
     return [...calcData].sort((a, b) => {
-      const va = a.empleado.id_nomex ?? -1, vb = b.empleado.id_nomex ?? -1;
+      const va = a.empleado.id_nomex ?? Number.MAX_SAFE_INTEGER, vb = b.empleado.id_nomex ?? Number.MAX_SAFE_INTEGER;
       return (va - vb) * sortNomex;
     });
   }, [calcData, sortNomex]);

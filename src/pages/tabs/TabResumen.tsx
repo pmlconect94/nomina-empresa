@@ -35,8 +35,7 @@ function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
           </div>
 
           <div className="form-section-title">Percepciones</div>
-          <Linea label={`Asistencias (${c.diasA} días)`} value={c.asistMonto} />
-          <Linea label="Séptimo día / descansos" value={c.septimo} />
+          <Linea label={`Asistencias + séptimo día (${c.diasA} días)`} value={c.asistMonto + c.septimo} />
           <Linea label={`Horas extra (${c.totalTEHrs}h)`} value={c.te} />
           <Linea label="Viajes / incentivos" value={c.incentivos} />
           <Linea label="Bono" value={c.bono} />
@@ -98,7 +97,7 @@ function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
 }
 
 export function TabResumen({ calcData }: { calcData: any[]; semana: any }) {
-  const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({ key: 'nombre', dir: 1 });
+  const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({ key: 'id_banco', dir: 1 });
   const [detalle, setDetalle] = useState<any>(null);
 
   const t = calcData.reduce((acc, d) => {
@@ -110,8 +109,7 @@ export function TabResumen({ calcData }: { calcData: any[]; semana: any }) {
   function val(d: any, key: string) {
     switch (key) {
       case 'nombre': return (d.empleado.nombre || '').toLowerCase();
-      case 'id_toka': return d.empleado.id_toka ?? -1;
-      case 'id_banco': return d.empleado.id_banco ?? -1;
+      case 'id_banco': return d.empleado.id_banco ?? Number.MAX_SAFE_INTEGER;
       case 'neto': return d.calc.neto;
       case 'depBanco': return d.calc.depositoBanco;
       case 'efectivo': return d.calc.efectivo;
@@ -154,10 +152,9 @@ export function TabResumen({ calcData }: { calcData: any[]; semana: any }) {
         <table className="tbl" style={{ fontSize: 11 }}>
           <thead>
             <tr>
-              <Th k="nombre">Empleado</Th>
-              <Th k="id_toka">ID Toka</Th>
               <Th k="id_banco">ID Banco</Th>
-              <th className="right">Asist.</th><th className="right">7mo día</th><th className="right">T. extra</th><th className="right">Viajes</th><th className="right">Bono</th><th className="right">Retro.</th>
+              <Th k="nombre">Empleado</Th>
+              <th className="right">T. extra</th><th className="right">Viajes</th><th className="right">Bono</th><th className="right">Retro.</th>
               <th className="right">Infonavit</th><th className="right">Comedor</th><th className="right">Retardos</th><th className="right">Préstamos</th><th className="right">Desc. prod.</th>
               <Th k="neto" right>Neto</Th><Th k="depBanco" right>Dep. banco</Th><th className="right">Vales</th><Th k="efectivo" right>Efectivo</Th>
             </tr>
@@ -168,11 +165,8 @@ export function TabResumen({ calcData }: { calcData: any[]; semana: any }) {
               const descPrestamo = c.totalDed - c.infonavit - c.comedor - c.retardoMonto - (c.descuentoProducto || 0);
               return (
                 <tr key={e.id} className="clickable" style={{ cursor: 'pointer' }} onClick={() => setDetalle(row)} title="Ver tarjeta de nómina">
+                  <td className="mono fw-600">{e.id_banco ?? '—'}</td>
                   <td><div className="fw-600">{e.nombre}</div><div className="text-xs muted">{e.area}</div></td>
-                  <td className="mono">{e.id_toka ?? '—'}</td>
-                  <td className="mono">{e.id_banco ?? '—'}</td>
-                  <td className="right mono">{fmt(c.asistMonto)}</td>
-                  <td className="right mono">{fmt(c.septimo)}</td>
                   <td className="right mono">{c.te > 0 ? fmt(c.te) : '—'}</td>
                   <td className="right mono">{c.incentivos > 0 ? fmt(c.incentivos) : '—'}</td>
                   <td className="right mono pos">{c.bono > 0 ? fmt(c.bono) : '—'}</td>
@@ -192,7 +186,7 @@ export function TabResumen({ calcData }: { calcData: any[]; semana: any }) {
           </tbody>
           <tfoot>
             <tr style={{ background: 'var(--ink-50)', fontWeight: 700 }}>
-              <td colSpan={3}>Totales</td><td colSpan={11}></td>
+              <td colSpan={2}>Totales</td><td colSpan={9}></td>
               <td className="right mono">{fmt(t.neto)}</td><td className="right mono orange">{fmt(t.depBanco)}</td><td className="right mono orange">{fmt(t.vales)}</td><td className="right mono blue">{fmt(t.efectivo)}</td>
             </tr>
           </tfoot>

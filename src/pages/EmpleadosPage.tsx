@@ -44,7 +44,7 @@ export function EmpleadosPage() {
 
   useEffect(() => { fetchEmpleados(); }, []);
   async function fetchEmpleados() {
-    const { data } = await supabase.from('empleados').select('*').order('nombre');
+    const { data } = await supabase.from('empleados').select('*').order('id_banco', { ascending: true, nullsFirst: false });
     setEmpleados(data || []);
   }
 

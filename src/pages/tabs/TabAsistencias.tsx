@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CODIGOS_ASISTENCIA, MOTIVOS_TE, DIAS_SEMANA } from '@/lib/calc';
 import { fmt, toISO } from '@/lib/format';
@@ -8,6 +8,16 @@ const COLOR: Record<string, string> = { A: '#EAF3DE', F: '#FCEBEB', D: '#F1EFE8'
 
 export function TabAsistencias({ semana, nominas, empleados, asistencias, viajeDias, canEdit }: any) {
   const [local, setLocal] = useState<Record<string, any>>({});
+  const [sortEmp, setSortEmp] = useState<{ key: 'id_banco' | 'nombre'; dir: 1 | -1 }>({ key: 'id_banco', dir: 1 });
+  const toggleSort = (key: 'id_banco' | 'nombre') => setSortEmp((s) => s.key === key ? { key, dir: (s.dir === 1 ? -1 : 1) } : { key, dir: 1 });
+  const empOrden = useMemo(() => {
+    return [...empleados].sort((a, b) => {
+      let va: any, vb: any;
+      if (sortEmp.key === 'nombre') { va = (a.nombre || '').toLowerCase(); vb = (b.nombre || '').toLowerCase(); }
+      else { va = a.id_banco ?? Number.MAX_SAFE_INTEGER; vb = b.id_banco ?? Number.MAX_SAFE_INTEGER; }
+      return va < vb ? -1 * sortEmp.dir : va > vb ? 1 * sortEmp.dir : 0;
+    });
+  }, [empleados, sortEmp]);
 
   useEffect(() => {
     const init: any = {};
@@ -25,15 +35,15 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, viajeD
   const days = dias();
   const get = (nomId: string, i: number) => local[`${nomId}_${i}`] || null;
 
-  // Poner "A" (asistencia) a todos los empleados en un día.
-  async function llenarDiaA(i: number, fecha: string) {
+  // Poner un código a todos los empleados en un día (A entre semana, D los domingos).
+  async function llenarDia(i: number, fecha: string, codigo: string) {
     if (!canEdit) return;
     for (const emp of empleados) {
       const nom = nominas[emp.id];
       if (!nom) continue;
       const a = get(nom.id, i);
       if (a?.codigo) continue; // no pisar lo ya capturado
-      await update(nom.id, i, fecha, 'codigo', 'A');
+      await update(nom.id, i, fecha, 'codigo', codigo);
     }
   }
 
@@ -71,24 +81,42 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, viajeD
         <table className="tbl" style={{ fontSize: 12 }}>
           <thead>
             <tr>
-              <th style={{ minWidth: 160 }}>Empleado</th>
+              <th style={{ minWidth: 180 }}>
+                <span onClick={() => toggleSort('id_banco')} style={{ cursor: 'pointer' }}>ID Banco <span style={{ opacity: sortEmp.key === 'id_banco' ? 1 : 0.25 }}>{sortEmp.key === 'id_banco' ? (sortEmp.dir === 1 ? '▲' : '▼') : '↕'}</span></span>
+                <span className="muted"> · </span>
+                <span onClick={() => toggleSort('nombre')} style={{ cursor: 'pointer' }}>Empleado <span style={{ opacity: sortEmp.key === 'nombre' ? 1 : 0.25 }}>{sortEmp.key === 'nombre' ? (sortEmp.dir === 1 ? '▲' : '▼') : '↕'}</span></span>
+              </th>
               {days.map((d, i) => {
                 const dn = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][d.getDay()];
+                const esDomingo = d.getDay() === 0;
                 return (
                   <th key={i} colSpan={4} className="center" style={{ borderLeft: '2px solid var(--ink-300)' }}>
-                    <div>{dn} {d.getDate()} {MESES_C[d.getMonth()]}</div>
-                    {canEdit && <button className="btn btn-outline btn-sm" style={{ padding: '2px 8px', fontSize: 10, marginTop: 4 }} title="Marcar asistencia (A) a todos en este día" onClick={() => llenarDiaA(i, toISO(d))}>✓ Todos A</button>}
+                    <div className="hstack" style={{ justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span>{dn} {d.getDate()} {MESES_C[d.getMonth()]}</span>
+                      {canEdit && <button className="btn btn-outline btn-sm" style={{ padding: '1px 6px', fontSize: 10 }} title={`Marcar ${esDomingo ? 'descanso (D)' : 'asistencia (A)'} a todos en este día`} onClick={() => llenarDia(i, toISO(d), esDomingo ? 'D' : 'A')}>✓ Todos {esDomingo ? 'D' : 'A'}</button>}
+                    </div>
+                    <div className="hstack" style={{ gap: 3, marginTop: 3, paddingLeft: 4, justifyContent: 'flex-start', fontWeight: 400 }}>
+                      <span style={{ width: 56, fontSize: 9, color: 'var(--ink-500)', textAlign: 'center' }}>Cód</span>
+                      <span style={{ width: 40, fontSize: 9, color: 'var(--ink-500)', textAlign: 'center' }}>Ret</span>
+                      <span style={{ width: 40, fontSize: 9, color: 'var(--ink-500)', textAlign: 'center' }}>T.E.</span>
+                      <span style={{ width: 64, fontSize: 9, color: 'var(--ink-500)', textAlign: 'center' }}>Mot</span>
+                    </div>
                   </th>
                 );
               })}
             </tr>
           </thead>
           <tbody>
-            {empleados.map((emp: any) => {
+            {empOrden.map((emp: any) => {
               const nom = nominas[emp.id]; if (!nom) return null;
               return (
                 <tr key={emp.id}>
-                  <td style={{ minWidth: 160 }}><div className="fw-600">{emp.nombre}</div><div className="text-xs muted">{emp.area}</div></td>
+                  <td style={{ minWidth: 180 }}>
+                    <div className="hstack" style={{ gap: 8 }}>
+                      <span className="mono fw-700" style={{ minWidth: 26, color: 'var(--ink-500)' }}>{emp.id_banco ?? '—'}</span>
+                      <div><div className="fw-600">{emp.nombre}</div><div className="text-xs muted">{emp.area}</div></div>
+                    </div>
+                  </td>
                   {days.map((d, i) => {
                     const a = get(nom.id, i); const codigo = a?.codigo || '';
                     return (

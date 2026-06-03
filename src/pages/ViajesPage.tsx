@@ -15,7 +15,7 @@ export function ViajesPanel({ semana, canEdit, onChanged }: any) {
   const [incent, setIncent] = useState({ chofer: 0, acomp: 0, tramo: null as number | null });
 
   useEffect(() => { (async () => {
-    const { data: emps } = await supabase.from('empleados').select('id,nombre').eq('activo', true).order('nombre');
+    const { data: emps } = await supabase.from('empleados').select('id,nombre,id_banco').eq('activo', true).order('id_banco', { ascending: true, nullsFirst: false });
     setEmpleados(emps || []);
     fetchViajes();
   })(); }, [semana.id]);

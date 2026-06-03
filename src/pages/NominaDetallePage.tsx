@@ -21,11 +21,11 @@ const TABS = [
   { key: 'asistencias', label: 'Asistencias' },
   { key: 'viajes', label: 'Viajes' },
   { key: 'comedor', label: 'Comedor' },
+  { key: 'fiscal', label: 'Fiscal' },
+  { key: 'retroactivos', label: 'HE retro' },
   { key: 'descproducto', label: 'Desc. producto' },
   { key: 'bonos', label: 'Bonos' },
-  { key: 'retroactivos', label: 'HE retro' },
   { key: 'prestamos', label: 'Préstamos' },
-  { key: 'fiscal', label: 'Fiscal' },
 ];
 
 export function NominaDetallePage() {
@@ -62,7 +62,7 @@ export function NominaDetallePage() {
 
     const esquema = sem.tipo === 'semanal' ? 'Semanal' : 'Quincenal';
     const [empRes, nomRes, viajesRes, prestRes, descRes, bonoRes, retroRes] = await Promise.all([
-      supabase.from('empleados').select('*').eq('activo', true).eq('esquema_pago', esquema).order('nombre'),
+      supabase.from('empleados').select('*').eq('activo', true).eq('esquema_pago', esquema).order('id_banco', { ascending: true, nullsFirst: false }),
       supabase.from('nominas').select('*').eq('semana_id', sem.id),
       supabase.from('viajes').select('*').eq('semana_id', sem.id),
       supabase.from('prestamos').select('*, empleado:empleado_id(nombre,area)').eq('activo', true),
