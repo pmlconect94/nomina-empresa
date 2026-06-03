@@ -140,7 +140,27 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, viajeD
           </tbody>
         </table>
       </div>
-      <p className="text-xs muted" style={{ marginTop: 10 }}>Códigos: A asistencia · F falta · D descanso · V vacaciones · PSG permiso sin goce · PCG permiso con goce · TXT tiempo x tiempo · SUS suspensión. R(h) retardo en horas · TE(h) horas extra.</p>
+      <div className="card" style={{ marginTop: 12, padding: 12 }}>
+        <div className="text-xs fw-700" style={{ marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--ink-500)' }}>Incidencias — qué resta y qué no (todo queda en el historial)</div>
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 6 }}>
+          {[
+            { c: 'A', n: 'Asistencia', resta: false },
+            { c: 'F', n: 'Falta', resta: false },
+            { c: 'D', n: 'Descanso', resta: true },
+            { c: 'V', n: 'Vacación', resta: false },
+            { c: 'PSG', n: 'Permiso sin goce de sueldo', resta: true },
+            { c: 'PCG', n: 'Permiso con goce de sueldo', resta: false },
+            { c: 'TXT', n: 'Tiempo x Tiempo', resta: false },
+            { c: 'SUS', n: 'Suspensión', resta: true },
+          ].map((it) => (
+            <div key={it.c} className="hstack text-xs" style={{ gap: 6, justifyContent: 'space-between', padding: '3px 6px', borderRadius: 6, background: COLOR[it.c] || 'var(--ink-50)' }}>
+              <span><strong>{it.c}</strong> · {it.n}</span>
+              <span className={`badge ${it.resta ? 'badge-red' : 'badge-green'}`}>{it.resta ? 'Resta' : 'No resta'}</span>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs muted" style={{ margin: '8px 0 0' }}>Además: <strong>Ret</strong> = retardo en horas (se resta) · <strong>T.E.</strong> = tiempo extra en horas · <strong>Mot</strong> = motivo del tiempo extra.</p>
+      </div>
     </div>
   );
 }

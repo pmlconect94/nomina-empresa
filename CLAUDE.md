@@ -424,6 +424,27 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
   en **domingos** el botón es **"✓ Todos D"** (marca descanso) en vez de Todos A.
 - **Orden de pestañas:** Resumen · Asistencias · Viajes · Comedor · Fiscal · HE retro ·
   Desc. producto · Bonos · Préstamos.
+
+### 2026-06-02 — Motivos HE, retardo en horas, fiscal, bonos permanentes, préstamos
+- **Motivos de horas extra:** agregados **Junta, Planta, Desayuno** a `MOTIVOS_TE`.
+- **Inputs numéricos sin flechas (spinners)** en toda la app (CSS global `appearance: none`).
+- **Retardo (fix de cálculo):** el campo se captura en **horas**; el monto = `(sd_real/7/8) ×
+  horas` (antes dividía entre 60 tratándolo como minutos). `calc.ts` ya no divide `/60`.
+- **Fiscal:** se corrigió que al cambiar de pestaña y volver se borraba lo capturado (ISR/IMSS/
+  depósito). Ahora `update` también sincroniza el objeto `nominas` en memoria.
+- **Leyenda de incidencias** en Asistencias: explica qué **resta** (D, PSG, SUS) y qué **no resta**
+  (A, F, V, PCG, TXT) — todo queda en el historial.
+- **Bonos permanentes:** nuevas tablas `bono_permanente` y `bono_permanente_excluido`. Aplican por
+  default en cada nómina (se suman al bucket Bono); en la pestaña **Bonos** se pueden **quitar del
+  periodo** (toggle "Aplica este periodo" → exclusión por semana) o **quitar por completo**
+  (activo=false). UI con dos secciones: permanentes y bonos de este periodo.
+- **Préstamos:**
+  - **Quincenal ahora descuenta 10%** (igual que semanal); `descuentoPrestamoMonto` y todas las
+    vistas/etiquetas actualizadas.
+  - **Abonos fuera de nómina:** botón **Abonar** en Préstamos reduce el saldo y lo registra en
+    `prestamo_descuentos` (nomina/semana NULL); el descuento por nómina sigue siendo 10% del monto.
+  - Alta de 3 préstamos a medias (María Isabel 5000/saldo 1500, Joselyn 6000/2400, Claudia
+    3000/1200), semanal, fecha 2026-05-01 para que descuenten en la nómina del 25–31 may.
 - **Fiscal:** agregada la columna **ID NOMEX** con orden por ese ID.
 
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->

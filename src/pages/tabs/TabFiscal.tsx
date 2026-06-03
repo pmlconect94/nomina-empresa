@@ -15,7 +15,10 @@ export function TabFiscal({ calcData, nominas, canEdit }: any) {
     const n = parseFloat(valor) || 0;
     setVals((v) => ({ ...v, [`${empId}_${campo}`]: n }));
     const nom = nominas[empId];
-    if (nom) await supabase.from('nominas').update({ [campo]: n }).eq('id', nom.id);
+    if (nom) {
+      nom[campo] = n; // mantener el objeto en memoria sincronizado (sobrevive al cambiar de pestaña)
+      await supabase.from('nominas').update({ [campo]: n }).eq('id', nom.id);
+    }
   }
 
   const rows = useMemo(() => {

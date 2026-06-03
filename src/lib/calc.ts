@@ -7,7 +7,7 @@
 // ============================================================
 
 export const CODIGOS_ASISTENCIA = ['A', 'F', 'D', 'V', 'PSG', 'PCG', 'TXT', 'SUS'];
-export const MOTIVOS_TE = ['Inventario', 'Descarga', 'Entregas local', 'Entregas 34', 'Entregas Higuerillas', 'Frigoríficos', 'Acomodo cámaras', 'Facturación'];
+export const MOTIVOS_TE = ['Inventario', 'Descarga', 'Entregas local', 'Entregas 34', 'Entregas Higuerillas', 'Frigoríficos', 'Acomodo cámaras', 'Facturación', 'Junta', 'Planta', 'Desayuno'];
 export const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 export const TAB_CHOFER = [200, 400, 500, 600];
 export const TAB_ACOMP = [100, 200, 300, 400];
@@ -29,8 +29,9 @@ export function calcIncentivos(horaLlegada?: string | null, dormir?: boolean) {
   return { chofer: TAB_CHOFER[t], acomp: TAB_ACOMP[t] };
 }
 
-export function descuentoPrestamoMonto(monto: number, tipo: string): number {
-  return tipo === 'semanal' ? monto * 0.1 : monto * 0.2;
+export function descuentoPrestamoMonto(monto: number, _tipo?: string): number {
+  // Descuento por nómina = 10% del monto, tanto semanal como quincenal.
+  return monto * 0.1;
 }
 
 // retroactivo = incentivo de VIAJES retroactivos.
@@ -57,7 +58,8 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   const diasV = dias.filter((d) => d.codigo === 'V').length;
   const diasF = dias.filter((d) => ['F', 'PSG', 'SUS'].includes(d.codigo)).length;
   const totalTEHrs = dias.reduce((s, d) => s + (parseFloat(d.te_horas) || 0), 0);
-  const totalRetHrs = dias.reduce((s, d) => s + (parseFloat(d.retardo_min) || 0) / 60, 0);
+  // El retardo se captura directamente en HORAS (no minutos).
+  const totalRetHrs = dias.reduce((s, d) => s + (parseFloat(d.retardo_min) || 0), 0);
 
   const asistMonto = diasA * dDR;
   // Descansos pagados según el esquema:

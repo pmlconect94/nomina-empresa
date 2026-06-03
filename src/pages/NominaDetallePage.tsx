@@ -61,7 +61,7 @@ export function NominaDetallePage() {
     setSemana(sem);
 
     const esquema = sem.tipo === 'semanal' ? 'Semanal' : 'Quincenal';
-    const [empRes, nomRes, viajesRes, prestRes, descRes, bonoRes, retroRes] = await Promise.all([
+    const [empRes, nomRes, viajesRes, prestRes, descRes, bonoRes, retroRes, bpRes, bxRes] = await Promise.all([
       supabase.from('empleados').select('*').eq('activo', true).eq('esquema_pago', esquema).order('id_banco', { ascending: true, nullsFirst: false }),
       supabase.from('nominas').select('*').eq('semana_id', sem.id),
       supabase.from('viajes').select('*').eq('semana_id', sem.id),
@@ -69,6 +69,8 @@ export function NominaDetallePage() {
       supabase.from('nomina_descuento_producto').select('empleado_id,monto').eq('semana_id', sem.id),
       supabase.from('nomina_bono').select('empleado_id,monto').eq('semana_id', sem.id),
       supabase.from('nomina_retroactivo').select('empleado_id,horas').eq('semana_id', sem.id),
+      supabase.from('bono_permanente').select('id,empleado_id,monto').eq('activo', true),
+      supabase.from('bono_permanente_excluido').select('bono_permanente_id').eq('semana_id', sem.id),
     ]);
     setEmpleados(empRes.data || []);
     const nomMap: any = {}; (nomRes.data || []).forEach((n) => (nomMap[n.empleado_id] = n)); setNominas(nomMap);
@@ -97,7 +99,11 @@ export function NominaDetallePage() {
     setViajeDias(vDias);
 
     const dpMap: any = {}; (descRes.data || []).forEach((d: any) => { dpMap[d.empleado_id] = (dpMap[d.empleado_id] || 0) + (d.monto || 0); }); setDescProductoMap(dpMap);
-    const bMap: any = {}; (bonoRes.data || []).forEach((b: any) => { bMap[b.empleado_id] = (bMap[b.empleado_id] || 0) + (b.monto || 0); }); setBonoMap(bMap);
+    const bMap: any = {}; (bonoRes.data || []).forEach((b: any) => { bMap[b.empleado_id] = (bMap[b.empleado_id] || 0) + (b.monto || 0); });
+    // Bonos permanentes: aplican por default, salvo los excluidos en esta nómina.
+    const excl = new Set((bxRes.data || []).map((x: any) => x.bono_permanente_id));
+    (bpRes.data || []).forEach((bp: any) => { if (!excl.has(bp.id)) bMap[bp.empleado_id] = (bMap[bp.empleado_id] || 0) + (bp.monto || 0); });
+    setBonoMap(bMap);
     const hrMap: any = {}; (retroRes.data || []).forEach((r: any) => { hrMap[r.empleado_id] = (hrMap[r.empleado_id] || 0) + (r.horas || 0); }); setHeRetroMap(hrMap);
 
     const fechaIni = new Date(sem.fecha_inicio + 'T12:00:00');
@@ -109,7 +115,7 @@ export function NominaDetallePage() {
       const primera = new Date(fp); primera.setDate(fp.getDate() + espera);
       return fechaIni >= primera;
     });
-    activos.forEach((p) => { const d = p.tipo === 'semanal' ? p.monto * 0.1 : p.monto * 0.2; dMap[p.empleado_id] = (dMap[p.empleado_id] || 0) + Math.min(d, p.saldo); });
+    activos.forEach((p) => { const d = p.monto * 0.1; dMap[p.empleado_id] = (dMap[p.empleado_id] || 0) + Math.min(d, p.saldo); });
     setPrestamosDesc(dMap); setPrestamosData(activos);
     setLoading(false);
   }, [semanaId]);
@@ -120,7 +126,7 @@ export function NominaDetallePage() {
     if (!confirm('¿Guardar y cerrar la nómina? Ya no podrá editarse.')) return;
     const ops: any[] = [];
     prestamosData.forEach((p) => {
-      const bruto = p.tipo === 'semanal' ? p.monto * 0.1 : p.monto * 0.2;
+      const bruto = p.monto * 0.1;
       const real = parseFloat(Math.min(bruto, p.saldo).toFixed(2));
       if (real <= 0) return;
       const nuevo = parseFloat((p.saldo - real).toFixed(2));

@@ -16,13 +16,13 @@ export function TabPrestamosResumen({ prestamos, descMap }: any) {
             <thead><tr><th>Empleado</th><th>Fecha préstamo</th><th>Tipo</th><th className="right">Monto</th><th className="right">Saldo</th><th className="right">Descuento</th><th className="right">Saldo después</th></tr></thead>
             <tbody>
               {prestamos.map((p: any) => {
-                const desc = Math.min(p.tipo === 'semanal' ? p.monto * 0.1 : p.monto * 0.2, p.saldo);
+                const desc = Math.min(p.monto * 0.1, p.saldo);
                 const despues = Math.max(0, p.saldo - desc);
                 return (
                   <tr key={p.id}>
                     <td><div className="fw-600">{p.empleado?.nombre || '—'}</div><div className="text-xs muted">{p.empleado?.area || ''}</div></td>
                     <td className="muted">{fmtFecha(p.fecha_prestamo)}</td>
-                    <td><span className="badge badge-gray">{p.tipo === 'semanal' ? 'Semanal 10%' : 'Quincenal 20%'}</span></td>
+                    <td><span className="badge badge-gray">{p.tipo === 'semanal' ? 'Semanal 10%' : 'Quincenal 10%'}</span></td>
                     <td className="right mono">{fmt(p.monto)}</td>
                     <td className="right mono orange">{fmt(p.saldo)}</td>
                     <td className="right mono neg">-{fmt(desc)}</td>

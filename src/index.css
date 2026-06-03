@@ -113,6 +113,10 @@ input, select, textarea { font-family: inherit; }
 .field-input:focus { outline: none; border-color: var(--blue-500); box-shadow: 0 0 0 3px var(--blue-100); }
 .field-input:disabled { background: var(--ink-50); color: var(--ink-500); cursor: not-allowed; }
 textarea.field-input { resize: vertical; min-height: 80px; }
+/* Quitar las flechas (spinners) de TODOS los inputs numéricos: solo captura. */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .form-grid { display: grid; gap: 10px; }
 .form-grid-2 { grid-template-columns: 1fr 1fr; }
 .form-grid-3 { grid-template-columns: 1fr 1fr 1fr; }

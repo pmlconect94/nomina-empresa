@@ -14,6 +14,8 @@ export function PrestamosPage() {
   const [empleados, setEmpleados] = useState<any[]>([]);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState<any>({ empleado_id: '', monto: '', fecha_prestamo: '', tipo: 'semanal' });
+  const [abonoP, setAbonoP] = useState<any>(null); // préstamo al que se le abona fuera de nómina
+  const [abonoMonto, setAbonoMonto] = useState('');
 
   useEffect(() => { fetchP(); fetchE(); }, []);
   async function fetchP() { const { data } = await supabase.from('prestamos').select('*, empleado:empleado_id(nombre,area)').order('created_at', { ascending: false }); setPrestamos(data || []); }
@@ -27,6 +29,18 @@ export function PrestamosPage() {
     setModal(false); setForm({ empleado_id: '', monto: '', fecha_prestamo: '', tipo: 'semanal' }); fetchP();
   }
   async function archivar(id: string) { if (!confirm('¿Archivar este préstamo?')) return; await supabase.from('prestamos').update({ activo: false }).eq('id', id); fetchP(); }
+
+  // Abono fuera de nómina: reduce el saldo. El descuento por nómina NO cambia (sigue 10% del monto).
+  async function abonar() {
+    const monto = parseFloat(abonoMonto) || 0;
+    if (monto <= 0) { toast.error('Captura el monto del abono'); return; }
+    const real = Math.min(monto, abonoP.saldo);
+    const nuevo = parseFloat((abonoP.saldo - real).toFixed(2));
+    await supabase.from('prestamos').update({ saldo: nuevo }).eq('id', abonoP.id);
+    await supabase.from('prestamo_descuentos').insert({ prestamo_id: abonoP.id, nomina_id: null, semana_id: null, monto_descontado: real, saldo_anterior: abonoP.saldo, saldo_posterior: nuevo });
+    toast.success(`Abono de ${fmt(real)} registrado`);
+    setAbonoP(null); setAbonoMonto(''); fetchP();
+  }
 
   function primerDesc(fecha: string) {
     if (!fecha) return '';
@@ -64,19 +78,36 @@ export function PrestamosPage() {
                 <tr key={p.id} className={arch ? 'row-inactive' : ''}>
                   <td><div className="fw-600">{p.empleado?.nombre || '—'}</div><div className="text-xs muted">{p.empleado?.area || ''}</div></td>
                   <td className="muted">{fmtFecha(p.fecha_prestamo)}</td>
-                  <td><span className="badge badge-gray">{p.tipo === 'semanal' ? 'Semanal 10%' : 'Quincenal 20%'}</span></td>
+                  <td><span className="badge badge-gray">{p.tipo === 'semanal' ? 'Semanal 10%' : 'Quincenal 10%'}</span></td>
                   <td className="right mono">{fmt(p.monto)}</td>
                   <td className={`right mono ${liq ? 'pos' : 'orange'}`}>{liq ? 'Liquidado' : fmt(p.saldo)}</td>
                   <td className="right mono blue">{liq ? '—' : fmt(d)}</td>
                   <td style={{ minWidth: 120 }}><div className="text-xs muted" style={{ marginBottom: 3 }}>{pct}%</div><div className="progress"><div className="progress-fill" style={{ width: pct + '%' }} /></div></td>
                   <td><span className={`badge ${arch ? 'badge-gray' : liq ? 'badge-green' : 'badge-blue'}`}>{arch ? 'Archivado' : liq ? 'Liquidado' : 'Activo'}</span></td>
-                  {canEdit && <td>{!arch && <button className="btn btn-ghost btn-sm" onClick={() => archivar(p.id)}><Icon name="trash" size={14} /></button>}</td>}
+                  {canEdit && <td><div className="hstack" style={{ gap: 4, justifyContent: 'flex-end' }}>
+                    {!arch && !liq && <button className="btn btn-outline btn-sm" onClick={() => { setAbonoP(p); setAbonoMonto(''); }} title="Abono fuera de nómina">Abonar</button>}
+                    {!arch && <button className="btn btn-ghost btn-sm" onClick={() => archivar(p.id)}><Icon name="trash" size={14} /></button>}
+                  </div></td>}
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+
+      {abonoP && (
+        <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && setAbonoP(null)}>
+          <div className="modal page-enter" style={{ maxWidth: 440 }}>
+            <div className="modal-header"><h3 className="modal-title">Abono fuera de nómina</h3><button className="btn btn-ghost btn-sm" onClick={() => setAbonoP(null)}><Icon name="x" size={16} /></button></div>
+            <div className="modal-body">
+              <p className="muted text-sm" style={{ marginTop: 0 }}>{abonoP.empleado?.nombre} · saldo actual <strong className="mono">{fmt(abonoP.saldo)}</strong>. El abono reduce el saldo; el descuento por nómina sigue igual.</p>
+              <div><label className="field-label">Monto del abono</label><input className="field-input mono" type="number" autoFocus value={abonoMonto} onChange={(e) => setAbonoMonto(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && abonar()} /></div>
+              {parseFloat(abonoMonto) > 0 && <p className="text-xs muted" style={{ marginTop: 8 }}>Saldo después: <strong className="mono">{fmt(Math.max(0, abonoP.saldo - (parseFloat(abonoMonto) || 0)))}</strong></p>}
+            </div>
+            <div className="modal-footer"><button className="btn btn-outline" onClick={() => setAbonoP(null)}>Cancelar</button><button className="btn btn-primary" onClick={abonar} disabled={!(parseFloat(abonoMonto) > 0)}>Registrar abono</button></div>
+          </div>
+        </div>
+      )}
 
       {modal && (
         <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && setModal(false)}>
@@ -91,7 +122,7 @@ export function PrestamosPage() {
                 <div><label className="field-label">Fecha del préstamo</label><input className="field-input" type="date" value={form.fecha_prestamo} onChange={(e) => setForm((f: any) => ({ ...f, fecha_prestamo: e.target.value }))} /></div>
               </div>
               <div className="form-grid" style={{ marginTop: 14 }}>
-                <div><label className="field-label">Tipo de descuento</label><select className="field-input" value={form.tipo} onChange={(e) => setForm((f: any) => ({ ...f, tipo: e.target.value }))}><option value="semanal">Semanal (10%)</option><option value="quincenal">Quincenal (20%)</option></select></div>
+                <div><label className="field-label">Tipo de descuento</label><select className="field-input" value={form.tipo} onChange={(e) => setForm((f: any) => ({ ...f, tipo: e.target.value }))}><option value="semanal">Semanal (10%)</option><option value="quincenal">Quincenal (10%)</option></select></div>
               </div>
               {form.monto > 0 && form.fecha_prestamo && (
                 <div style={{ marginTop: 14, background: 'var(--ink-50)', borderRadius: 'var(--r-md)', padding: 12 }} className="text-sm">
