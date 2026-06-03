@@ -9,6 +9,7 @@ const COLOR: Record<string, string> = { A: '#EAF3DE', F: '#FCEBEB', D: '#F1EFE8'
 export function TabAsistencias({ semana, nominas, empleados, asistencias, viajeDias, canEdit }: any) {
   const [local, setLocal] = useState<Record<string, any>>({});
   const [sortEmp, setSortEmp] = useState<{ key: 'id_banco' | 'nombre'; dir: 1 | -1 }>({ key: 'id_banco', dir: 1 });
+  const [areaFiltro, setAreaFiltro] = useState<string>('Todas');
   const toggleSort = (key: 'id_banco' | 'nombre') => setSortEmp((s) => s.key === key ? { key, dir: (s.dir === 1 ? -1 : 1) } : { key, dir: 1 });
   const empOrden = useMemo(() => {
     return [...empleados].sort((a, b) => {
@@ -18,6 +19,8 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, viajeD
       return va < vb ? -1 * sortEmp.dir : va > vb ? 1 * sortEmp.dir : 0;
     });
   }, [empleados, sortEmp]);
+  const areas = useMemo(() => Array.from(new Set(empleados.map((e: any) => e.area).filter(Boolean))).sort() as string[], [empleados]);
+  const empFiltrados = useMemo(() => areaFiltro === 'Todas' ? empOrden : empOrden.filter((e: any) => e.area === areaFiltro), [empOrden, areaFiltro]);
 
   useEffect(() => {
     const init: any = {};
@@ -38,7 +41,7 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, viajeD
   // Poner un código a todos los empleados en un día (A entre semana, D los domingos).
   async function llenarDia(i: number, fecha: string, codigo: string) {
     if (!canEdit) return;
-    for (const emp of empleados) {
+    for (const emp of empFiltrados) {
       const nom = nominas[emp.id];
       if (!nom) continue;
       const a = get(nom.id, i);
@@ -74,6 +77,13 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, viajeD
 
   return (
     <div>
+      <div className="hstack" style={{ gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span className="text-xs muted" style={{ marginRight: 2 }}>Área:</span>
+        <div className="segmented" style={{ flexWrap: 'wrap' }}>
+          <button className={areaFiltro === 'Todas' ? 'active' : ''} onClick={() => setAreaFiltro('Todas')}>Todas</button>
+          {areas.map((a) => <button key={a} className={areaFiltro === a ? 'active' : ''} onClick={() => setAreaFiltro(a)}>{a}</button>)}
+        </div>
+      </div>
       <div className="hstack" style={{ gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
         {Object.entries(COLOR).map(([c, bg]) => <span key={c} className="hstack text-xs" style={{ gap: 4 }}><i style={{ width: 12, height: 12, borderRadius: 3, background: bg, display: 'inline-block', border: '1px solid var(--ink-200)' }} />{c}</span>)}
       </div>
@@ -107,7 +117,7 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, viajeD
             </tr>
           </thead>
           <tbody>
-            {empOrden.map((emp: any) => {
+            {empFiltrados.map((emp: any) => {
               const nom = nominas[emp.id]; if (!nom) return null;
               return (
                 <tr key={emp.id}>

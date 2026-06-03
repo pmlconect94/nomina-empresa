@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { fmt, fmtFecha, MESES } from '@/lib/format';
+import { fmt, fmtFecha, fmtFechaHora, fmtPeriodo, MESES } from '@/lib/format';
 import { descuentoPrestamoMonto } from '@/lib/calc';
 import { Icon } from '@/components/Icon';
 import { PageEnter } from '@/components/motion';
@@ -16,6 +16,20 @@ export function PrestamosPage() {
   const [form, setForm] = useState<any>({ empleado_id: '', monto: '', fecha_prestamo: '', tipo: 'semanal' });
   const [abonoP, setAbonoP] = useState<any>(null); // préstamo al que se le abona fuera de nómina
   const [abonoMonto, setAbonoMonto] = useState('');
+  const [detalleP, setDetalleP] = useState<any>(null); // préstamo cuyo desglose de pagos se ve
+  const [hist, setHist] = useState<any[]>([]);
+  const [histLoad, setHistLoad] = useState(false);
+
+  async function verDetalle(p: any) {
+    setDetalleP(p); setHist([]); setHistLoad(true);
+    const { data } = await supabase
+      .from('prestamo_descuentos')
+      .select('*, semana:semana_id(fecha_inicio,fecha_fin)')
+      .eq('prestamo_id', p.id)
+      .order('created_at', { ascending: true });
+    setHist(data || []); setHistLoad(false);
+  }
+  const totalAbonado = (p: any) => (p ? p.monto - p.saldo : 0);
 
   useEffect(() => { fetchP(); fetchE(); }, []);
   async function fetchP() { const { data } = await supabase.from('prestamos').select('*, empleado:empleado_id(nombre,area)').order('created_at', { ascending: false }); setPrestamos(data || []); }
@@ -75,7 +89,7 @@ export function PrestamosPage() {
               const pct = Math.round(((p.monto - p.saldo) / p.monto) * 100);
               const liq = p.saldo === 0, arch = p.activo === false;
               return (
-                <tr key={p.id} className={arch ? 'row-inactive' : ''}>
+                <tr key={p.id} className={`clickable ${arch ? 'row-inactive' : ''}`} style={{ cursor: 'pointer' }} onClick={() => verDetalle(p)} title="Ver desglose de pagos">
                   <td><div className="fw-600">{p.empleado?.nombre || '—'}</div><div className="text-xs muted">{p.empleado?.area || ''}</div></td>
                   <td className="muted">{fmtFecha(p.fecha_prestamo)}</td>
                   <td><span className="badge badge-gray">{p.tipo === 'semanal' ? 'Semanal 10%' : 'Quincenal 10%'}</span></td>
@@ -85,8 +99,8 @@ export function PrestamosPage() {
                   <td style={{ minWidth: 120 }}><div className="text-xs muted" style={{ marginBottom: 3 }}>{pct}%</div><div className="progress"><div className="progress-fill" style={{ width: pct + '%' }} /></div></td>
                   <td><span className={`badge ${arch ? 'badge-gray' : liq ? 'badge-green' : 'badge-blue'}`}>{arch ? 'Archivado' : liq ? 'Liquidado' : 'Activo'}</span></td>
                   {canEdit && <td><div className="hstack" style={{ gap: 4, justifyContent: 'flex-end' }}>
-                    {!arch && !liq && <button className="btn btn-outline btn-sm" onClick={() => { setAbonoP(p); setAbonoMonto(''); }} title="Abono fuera de nómina">Abonar</button>}
-                    {!arch && <button className="btn btn-ghost btn-sm" onClick={() => archivar(p.id)}><Icon name="trash" size={14} /></button>}
+                    {!arch && !liq && <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); setAbonoP(p); setAbonoMonto(''); }} title="Abono fuera de nómina">Abonar</button>}
+                    {!arch && <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); archivar(p.id); }}><Icon name="trash" size={14} /></button>}
                   </div></td>}
                 </tr>
               );
@@ -94,6 +108,48 @@ export function PrestamosPage() {
           </tbody>
         </table>
       </div>
+
+      {detalleP && (
+        <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && setDetalleP(null)}>
+          <div className="modal page-enter" style={{ maxWidth: 600 }}>
+            <div className="modal-header">
+              <div>
+                <h3 className="modal-title">Desglose de pagos</h3>
+                <div className="text-xs muted">{detalleP.empleado?.nombre} · préstamo {fmt(detalleP.monto)} · {fmtFecha(detalleP.fecha_prestamo)}</div>
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={() => setDetalleP(null)}><Icon name="x" size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="grid grid-3" style={{ marginBottom: 14 }}>
+                <div className="kpi"><span className="kpi-label">Monto</span><span className="kpi-value">{fmt(detalleP.monto)}</span></div>
+                <div className="kpi"><span className="kpi-label">Abonado</span><span className="kpi-value pos">{fmt(totalAbonado(detalleP))}</span></div>
+                <div className="kpi"><span className="kpi-label">Saldo</span><span className="kpi-value orange">{fmt(detalleP.saldo)}</span></div>
+              </div>
+              {histLoad ? <div className="empty"><span className="spinner" /></div> : hist.length === 0 ? (
+                <div className="empty"><div className="empty-title">Sin pagos registrados</div><div className="text-xs muted">Los descuentos se registran al guardar cada nómina.</div></div>
+              ) : (
+                <div className="tbl-wrap">
+                  <table className="tbl">
+                    <thead><tr><th>Fecha</th><th>Concepto</th><th className="right">Abono</th><th className="right">Saldo anterior</th><th className="right">Saldo después</th></tr></thead>
+                    <tbody>
+                      {hist.map((h) => (
+                        <tr key={h.id}>
+                          <td className="muted">{fmtFechaHora(h.created_at)}</td>
+                          <td>{h.semana_id ? <span className="badge badge-blue">Nómina {h.semana ? fmtPeriodo(h.semana.fecha_inicio, h.semana.fecha_fin) : ''}</span> : <span className="badge badge-gray">Abono fuera de nómina</span>}</td>
+                          <td className="right mono pos">{fmt(h.monto_descontado)}</td>
+                          <td className="right mono muted">{fmt(h.saldo_anterior)}</td>
+                          <td className="right mono">{fmt(h.saldo_posterior)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer"><button className="btn btn-primary" onClick={() => setDetalleP(null)}>Cerrar</button></div>
+          </div>
+        </div>
+      )}
 
       {abonoP && (
         <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && setAbonoP(null)}>

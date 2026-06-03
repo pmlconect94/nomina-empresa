@@ -30,7 +30,7 @@
   --shadow-xl: 0 24px 48px rgba(10, 37, 64, 0.18);
   --shadow-diffusion: 0 20px 40px -15px rgba(10, 37, 64, 0.08);
 
-  --sidebar-w: 248px;
+  --sidebar-w: 200px;
   --topbar-h: 60px;
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -143,7 +143,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 
 .topbar { height: var(--topbar-h); background: white; border-bottom: 1px solid var(--ink-200); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; position: sticky; top: 0; z-index: 10; }
 .main-area { display: flex; flex-direction: column; min-width: 0; }
-.content { padding: 14px 18px; max-width: 1400px; width: 100%; margin: 0 auto; }
+.content { padding: 14px 18px; width: 100%; margin: 0; }
 
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 12px; gap: 16px; }
 .page-title { font-size: 16px; font-weight: 700; color: var(--ink-900); margin: 0; letter-spacing: -0.015em; }

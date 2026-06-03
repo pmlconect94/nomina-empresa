@@ -182,7 +182,10 @@ semana). `viajes` tiene `retroactivo` (bool). **Vista** `v_incidencias` (KPIs: d
 
 - **Salario diario:** `dDR = sd_real / 7` (real) y `dDF = sd_fiscal / 7` (fiscal). `sd_*` es el
   semanal-equivalente (diario × 7); el diario sale del sueldo del periodo ÷15 (quincena) o ÷7 (semana).
-- **Vales / previsión social:** capturados en el alta de sueldo (sugerido 10% del fiscal del periodo).
+- **Vales / previsión social:** monto base capturado en el alta de sueldo (sugerido 10% del fiscal del
+  periodo), pero **se prorratean por las asistencias pagadas**: `base × (asistenciasPagadas / díasPeriodo)`,
+  donde `asistenciasPagadas = díasQueCuentan + séptimo` y `díasPeriodo` = 7 (semana) / 15 (quincena).
+  Con asistencia completa → vales/previsión completos. **No** entran en el neto (son parte fiscal).
 - **Incidencias (pago por código):** **se pagan** (trato asistencia) A, **D**, V, PCG, TXT; **no se
   pagan** (trato falta, restan) **F**, PSG, SUS. `asistMonto = díasPagados[A,V,PCG,TXT] × dDR`; el
   **Descanso (D) se paga vía el séptimo** (no entra en asistMonto para no duplicar).
@@ -201,8 +204,14 @@ semana). `viajes` tiene `retroactivo` (bool). **Vista** `v_incidencias` (KPIs: d
   (reversible al desbloquear con PIN).
 - **Bonos permanentes:** definidos por empleado, aplican por **default cada nómina**; se pueden
   **excluir por periodo** (tabla `bono_permanente` + exclusiones `bono_permanente_excluido`).
-- **Distribución del pago:** `deposito_banco = max(0, deposito_total - vales)`;
-  `efectivo = max(0, neto - deposito_total)`. Sin Alta IMSS → todo a efectivo.
+- **Neto a pagar (real):** `percepciones (SIN vales ni previsión) − deducciones (SIN ISR ni IMSS)`.
+- **Depósito fiscal (calculado, NO se captura):** `sueldoFiscalPeriodo (completo) + vales + previsión
+  − TODAS las deducciones (incluye ISR e IMSS)`. El sueldo fiscal va completo (las faltas no lo reducen).
+- **Depósito corregido:** casilla manual (`nominas.deposito_corregido`, NULL = usar el fiscal). Se usa
+  cuando el depósito fiscal calculado no coincide con el sistema de timbrado (nomiexpress).
+- **Distribución del pago:** `efectivo = neto − depósito_corregido`;
+  `deposito_banco = depósito_corregido − vales`; `vales` = los prorrateados.
+  (vales + banco + efectivo = neto.) Sin Alta IMSS → todo a efectivo (sin depósito ni vales).
 
 ## Roles
 
@@ -512,5 +521,87 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
   semana/empleado) lista para el dashboard de incidencias (F5).
 - Leyenda de Asistencias corregida (F = resta, D = no resta).
 - **Fiscal:** agregada la columna **ID NOMEX** con orden por ese ID.
+
+### 2026-06-03 — F5: Dashboard visual (rediseño) de KPIs
+- **`DashboardPage.tsx`** rediseñado a un panel **visual y espaciado, con gráficas de barras en CSS**
+  (sin librerías nuevas). Filtro global por **Mes** (select que lista los meses con datos, el más
+  reciente por defecto; soporta automáticamente meses futuros cuando lleguen).
+  - **Incidencias del mes** — tarjetas grandes (Faltas, Retardos, Horas extra, Vacaciones, Permiso
+    c/goce, Permiso s/goce); al pulsar una se **despliega quién** (lista de empleados con su conteo).
+  - **Destinos más visitados** y **Choferes que más viajaron** (barras horizontales, top 6).
+  - **Motivos de horas extra** (barras, desde `asistencias.te_motivo`).
+  - **Comedor**: comidas servidas + personas distintas del mes.
+  - **Préstamos activos**: barra de avance (% pagado) + saldo por empleado + saldo total.
+  - Pie de página con 4 KPIs generales (activos, viajes del mes, HE del mes, saldo préstamos).
+- Datos: consulta directa a `asistencias` (vía `nominas` para mapear empleado), `viajes`,
+  `comedor_registro` y `prestamos`; se agrupan por mes (`fecha`) en el cliente. Numéricos
+  coercionados con `Number()`. **Nota:** hoy solo hay datos de **mayo 2026** (semana 25–31 may);
+  junio aparecerá en el selector cuando se capture. Typecheck `tsc --noEmit` limpio.
+
+### 2026-06-03 — UI: sidebar más delgado + contenido a ancho completo
+- `--sidebar-w` 248 → **200px** y `.content` sin `max-width` (era 1400px) ni centrado → el área de
+  trabajo usa todo el ancho disponible. Solo CSS (`src/index.css`).
+
+### 2026-06-03 — Cálculo: vales/previsión prorrateados + depósito fiscal calculado + corregido
+- **Vales y previsión social** dejan de ser monto fijo: se **prorratean** por asistencias pagadas
+  (`base × (díasQueCuentan + séptimo) / díasPeriodo`). En semana/quincena completa → monto íntegro.
+- **Depósito fiscal CALCULADO** (antes se capturaba `deposito_total`): `sueldoFiscalPeriodo + vales +
+  previsión − todas las deducciones (ISR e IMSS incluidos)`. El sueldo fiscal va completo (faltas no
+  lo reducen).
+- **Depósito corregido:** nueva columna `nomina.deposito_corregido` (numeric, NULL = usar el fiscal).
+  Casilla editable en la pestaña Fiscal (default = fiscal; botón ↺ para quitar la corrección). Es el
+  valor que se usa para banco y efectivo cuando no coincide con el sistema de timbrado.
+- **Distribución:** `efectivo = neto − dep_corregido`; `dep_banco = dep_corregido − vales`. El `neto`
+  no cambió (ya excluía vales/previsión y ISR/IMSS).
+- **Tab Fiscal:** se quitaron la columna *Prev. social* y el input *Dep. total*; se agregaron
+  *Dep. fiscal* (calculado en vivo con el ISR/IMSS de la fila) y *Dep. corregido* (editable). El
+  **recibo** ahora muestra bloque "Parte fiscal" (sueldo fiscal, previsión, vales, ISR, IMSS, depósito
+  fiscal) + distribución (corregido, vales, banco, efectivo). `lib/calc.ts`, `TabFiscal.tsx`,
+  `TabResumen.tsx`. `deposito_total` queda en desuso. Validado con el ejemplo de María Joselyn
+  (neto 1,398.10 · dep. fiscal 1,194.82 · corregido 821.49 · banco 634.82 · efectivo 576.60).
+
+### 2026-06-03 — Ajustes UX: viajes editables, sync empleados, préstamos, filtros, impresión
+- **Viajes editables** (`ViajesPage`): botón ✏️ por fila carga el viaje al formulario; al actualizar
+  **pide confirmación** ("¿Modificar este viaje? Se recalcularán los incentivos"). Antes solo se podían
+  borrar y recapturar. Chofer/Acompañante **solo listan personal de `Logistica/Almacen`**.
+- **Empleado agregado tarde** (`NominaDetallePage`): al abrir una nómina **abierta** se crean en
+  automático las filas de `nominas` faltantes para empleados activos del esquema → ya aparecen en
+  Asistencias y Comedor (antes solo salían en Resumen).
+- **Préstamos** (`PrestamosPage`): clic en un préstamo abre **desglose de pagos** (tabla
+  `prestamo_descuentos`: fecha, concepto Nómina<periodo>/Abono fuera de nómina, abono, saldo
+  anterior→posterior) + KPIs monto/abonado/saldo.
+- **Asistencias**: filtros por **área** (botones arriba; "Todos A/D" respeta el filtro).
+- **Dep. corregido en rojo**: en Fiscal (input y valor) y en el recibo del Resumen.
+- **Impresión** (`TabResumen` + nuevo `tabs/printNomina.ts`): el botón Imprimir es un menú con 3
+  formatos que abren ventana e imprimen: **Resumen general**, **Dispersión bancaria** (ID Banco +
+  nombre + importe a depositar + total) y **Dispersión vales/efectivo** (dos listados con totales).
+  Encabezado con empresa, periodo, fecha y firmas (Elaboró/Revisó/Autorizó).
+- **Confirmado (sin cambio):** el descuento de préstamo por nómina solo se aplica al **Guardar**
+  la nómina (no antes). PIN maestro para desbloquear = `VITE_MASTER_PIN` (1424798).
+
+### 2026-06-03 — Impresiones/Exportaciones de nómina (formatos)
+- Reescrito `tabs/printNomina.ts`. El menú "Imprimir / Exportar" del Resumen ofrece:
+  - **Incidencias** (carta **horizontal**): matriz empleado × día con Asist (coloreado por código) / R
+    (retardo) / T.E.
+  - **Viajes y horas extra** (carta vertical): tabla de viajes (fecha, destino, cliente, vehículo,
+    chofer, acompañante, horas) + tabla de **horas extra** (incluye **HE retroactivas** marcadas
+    "(retro)", desde `nomina_retroactivo`) + resúmenes **Chofer** y **Acompañante** (viajes + dinero).
+  - **Dispersión** (carta horizontal, con firmas): columnas en este orden — ID Banco · Empleado ·
+    **Sueldo** (asistencia+séptimo) · Préstamo · Comedor · Desc. Producto · Infonavit · Falta/Retardo
+    (=descuento retardos; faltas ya van en el sueldo) · Bono · Retroactivo · **Extra** (horas extra +
+    incentivos de viajes) · Neto · Dep. Banco · Efectivo. Deducciones en rojo. Reconcilia con el neto.
+  - **Vales — Excel (CSV)**: descarga `vales_easyvale_<periodo>.csv` con columnas **ID** (26260, cuenta
+    de vales, constante) · **NOMINA** (= `id_toka` del empleado) · **MONTO** (vales prorrateados) ·
+    **PRODUCTO** (EASYVALE CHIP, constante). Solo empleados con vales>0; avisa si alguno no tiene ID Toka.
+  - **Dispersión banco**: pendiente (el usuario la definirá después).
+- Impresión: abre ventana nueva con HTML propio (encabezado empresa/periodo/fecha) y `window.print()`
+  (requiere permitir pop-ups). El CSV lleva BOM UTF-8 para acentos en Excel.
+
+### 2026-06-03 — Impresión: colores + cruce viaje/HE
+- Impresión ahora respeta **colores y fondos** (`print-color-adjust: exact`) para que el papel/PDF
+  salga igual que la vista generada (códigos de incidencia, encabezados, deducciones en rojo).
+- En "Viajes y horas extra" se agregó, **debajo de la tabla de viajes**, la sección **"⚠ Mismo día
+  con viaje y horas extra"**: cruza viajes (chofer/acompañante) con HE de `asistencias` por
+  empleado+fecha (nombre, fecha, rol, destino·llegada, horas, motivo) para tenerlo mapeado.
 
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->

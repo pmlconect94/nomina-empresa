@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react';
 import { fmt, fmtFecha, nomexLabel } from '@/lib/format';
 import { Icon } from '@/components/Icon';
+import { imprimirNomina, exportarValesCSV } from './printNomina';
 
-function Linea({ label, value, neg, bold }: any) {
+function Linea({ label, value, neg, bold, red }: any) {
   if (!value && !bold) return null;
   return (
     <div className="hstack" style={{ justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--ink-100)', fontWeight: bold ? 700 : 400 }}>
-      <span className={bold ? '' : 'muted'}>{label}</span>
-      <span className={`mono ${neg ? 'neg' : ''}`}>{neg && value ? '-' : ''}{fmt(value)}</span>
+      <span className={bold ? '' : 'muted'} style={red ? { color: 'var(--red-500)' } : undefined}>{label}</span>
+      <span className={`mono ${neg ? 'neg' : ''}`} style={red ? { color: 'var(--red-500)' } : undefined}>{neg && value ? '-' : ''}{fmt(value)}</span>
     </div>
   );
 }
@@ -80,8 +81,21 @@ function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
             <span className="fw-700">Neto a pagar</span><span className="mono fw-700" style={{ fontSize: 18 }}>{fmt(c.neto)}</span>
           </div>
 
+          {c.altaImss && (
+            <>
+              <div className="form-section-title">Parte fiscal (no afecta el neto)</div>
+              <Linea label="Sueldo fiscal del periodo" value={c.sueldoFiscalPeriodo} />
+              <Linea label="Previsión social (prorrateada)" value={c.prevSocial} />
+              <Linea label="Vales de despensa (prorrateados)" value={c.vales} />
+              <Linea label="ISR" value={c.isr} neg />
+              <Linea label="IMSS" value={c.imss} neg />
+              <Linea label="Depósito fiscal (calculado)" value={c.depositoFiscal} bold />
+            </>
+          )}
+
           <div className="form-section-title">Distribución del pago</div>
-          <Linea label="Depósito total" value={c.deposito} bold />
+          {c.altaImss && c.tieneCorregido && <Linea label="Depósito corregido (manual)" value={c.depositoCorregido} bold red />}
+          {c.altaImss && !c.tieneCorregido && <Linea label="Depósito a depositar" value={c.depositoCorregido} bold />}
           <Linea label="Vales de despensa" value={c.vales} />
           <Linea label="Depósito a banco" value={c.depositoBanco} />
           <Linea label="Efectivo" value={c.efectivo} />
@@ -95,9 +109,17 @@ function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
   );
 }
 
-export function TabResumen({ calcData }: { calcData: any[]; semana: any }) {
+export function TabResumen({ calcData, semana }: { calcData: any[]; semana: any }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({ key: 'id_banco', dir: 1 });
   const [detalle, setDetalle] = useState<any>(null);
+  const [printMenu, setPrintMenu] = useState(false);
+  const acciones: { label: string; run: () => void; disabled?: boolean }[] = [
+    { label: '🖨  Incidencias', run: () => imprimirNomina('incidencias', calcData, semana) },
+    { label: '🖨  Viajes y horas extra', run: () => imprimirNomina('viajeshe', calcData, semana) },
+    { label: '🖨  Dispersión', run: () => imprimirNomina('dispersion', calcData, semana) },
+    { label: '⬇  Vales — Excel (CSV)', run: () => exportarValesCSV(calcData, semana) },
+    { label: 'Dispersión banco (próximamente)', run: () => {}, disabled: true },
+  ];
 
   const t = calcData.reduce((acc, d) => {
     acc.perc += d.calc.totalPerc; acc.ded += d.calc.totalDed; acc.neto += d.calc.neto;
@@ -138,7 +160,26 @@ export function TabResumen({ calcData }: { calcData: any[]; semana: any }) {
     <div>
       <div className="hstack" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
         <h3 className="card-title">Resumen de nómina</h3>
-        <button className="btn btn-outline btn-sm" onClick={() => window.print()}><Icon name="printer" size={14} /> Imprimir</button>
+        <div style={{ position: 'relative' }}>
+          <button className="btn btn-outline btn-sm" onClick={() => setPrintMenu((o) => !o)}><Icon name="printer" size={14} /> Imprimir / Exportar ▾</button>
+          {printMenu && (
+            <>
+              <div onClick={() => setPrintMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+              <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 50, background: 'white', border: '1px solid var(--ink-200)', borderRadius: 'var(--r-md)', boxShadow: '0 10px 28px rgba(10,37,64,0.14)', minWidth: 250, overflow: 'hidden', padding: 4 }}>
+                {acciones.map((a) => (
+                  <button
+                    key={a.label}
+                    disabled={a.disabled}
+                    onClick={() => { if (a.disabled) return; a.run(); setPrintMenu(false); }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', fontSize: 13, background: 'white', borderRadius: 8, color: a.disabled ? 'var(--ink-400)' : 'var(--ink-800)', cursor: a.disabled ? 'default' : 'pointer' }}
+                    onMouseOver={(e) => { if (!a.disabled) e.currentTarget.style.background = 'var(--blue-50)'; }}
+                    onMouseOut={(e) => (e.currentTarget.style.background = 'white')}
+                  >{a.label}</button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
       <div className="grid grid-4" style={{ marginBottom: 14, gridTemplateColumns: 'repeat(5,1fr)' }}>
         <div className="kpi"><span className="kpi-label">Percepciones</span><span className="kpi-value">{fmt(t.perc)}</span></div>

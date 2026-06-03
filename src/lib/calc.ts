@@ -48,9 +48,9 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   const sueldoRealPeriodo = dDR * divisorPeriodo;
   // Sin Alta IMSS: no hay parte fiscal (todo se paga en efectivo).
   const altaImss = empleado.alta_imss === true;
-  // Vales y previsión: si se capturaron en el sueldo se usan; si no, 10% del fiscal del periodo.
-  const vales = !altaImss ? 0 : ((empleado.vales || 0) > 0 ? empleado.vales : sueldoFiscalPeriodo * 0.1);
-  const prevSocial = !altaImss ? 0 : ((empleado.prevision_social || 0) > 0 ? empleado.prevision_social : sueldoFiscalPeriodo * 0.1);
+  // Montos BASE del periodo (lo que se pagaría con asistencia completa). Si no se capturaron, 10% del fiscal.
+  const valesBase = !altaImss ? 0 : ((empleado.vales || 0) > 0 ? empleado.vales : sueldoFiscalPeriodo * 0.1);
+  const prevBase = !altaImss ? 0 : ((empleado.prevision_social || 0) > 0 ? empleado.prevision_social : sueldoFiscalPeriodo * 0.1);
 
   const dias = asistencias || [];
   // Trato de pago por incidencia (regla del usuario):
@@ -76,7 +76,15 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   //  - Quincenal: 13 días laborables + 2 descansos → factor 2/13.
   // Ej. quincenal con 10 días trabajados: 10 × 2/13 = 1.54 días de descanso.
   const descansoFactor = tipo === 'quincenal' ? (2 / 13) : (1 / 6);
-  const septimo = dDR * (diasCuentan * descansoFactor);
+  const septimoDias = diasCuentan * descansoFactor;        // días de descanso pagados
+  const septimo = dDR * septimoDias;
+  // Asistencias pagadas (en días) = días que cuentan + su séptimo proporcional.
+  // Con asistencia completa: semanal 6+1=7, quincenal 13+2=15.
+  const asistenciasPagadas = diasCuentan + septimoDias;
+  // Vales y previsión se PRORRATEAN por las asistencias pagadas del periodo (÷7 ó ÷15).
+  const factorProrrateo = asistenciasPagadas / divisorPeriodo;
+  const vales = valesBase * factorProrrateo;
+  const prevSocial = prevBase * factorProrrateo;
   const te = totalTEHrs * (dDR / 8) * 2;
   // Horas extra retroactivas: mismo cálculo (horas × valor hora × 2), pero cuenta en Retroactivo.
   const teRetroHrs = horasExtraRetro || 0;
@@ -95,21 +103,33 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   const totalDed = infonavit + comedor + retardoMonto + prestDesc + (descuentoProducto || 0);
 
   const neto = totalPerc - totalDed;
+
+  // --- Parte fiscal ---
+  const isr = parseFloat(nomina?.isr || 0);
+  const imss = parseFloat(nomina?.imss || 0);
+  // Todas las deducciones (las del neto + ISR e IMSS) para el depósito fiscal.
+  const dedTotalesFiscal = totalDed + isr + imss;
+  // DEPÓSITO FISCAL (calculado) = sueldo fiscal del periodo COMPLETO + vales + previsión − todas las deducciones.
+  const depositoFiscal = altaImss ? (sueldoFiscalPeriodo + vales + prevSocial - dedTotalesFiscal) : 0;
+  // DEPÓSITO CORREGIDO: si se capturó un valor manual se usa ese; si no, el fiscal calculado.
+  const tieneCorregido = nomina?.deposito_corregido !== null && nomina?.deposito_corregido !== undefined && nomina?.deposito_corregido !== '';
+  const depositoCorregido = altaImss ? (tieneCorregido ? parseFloat(nomina.deposito_corregido) : depositoFiscal) : 0;
+
   // Distribución del pago. Sin Alta IMSS: todo en efectivo (sin depósito ni vales).
-  const deposito = altaImss ? parseFloat(nomina?.deposito_total || 0) : 0;
-  const depositoBanco = altaImss ? Math.max(0, deposito - vales) : 0;
-  const efectivo = altaImss ? Math.max(0, neto - deposito) : neto;
+  const depositoBanco = altaImss ? (depositoCorregido - vales) : 0;
+  const efectivo = altaImss ? (neto - depositoCorregido) : neto;
 
   return {
-    dDR, dDF, vales, prevSocial, sueldoFiscalPeriodo, sueldoRealPeriodo, altaImss,
-    diasA, diasCuentan, diasV, diasD, diasF, incidencias, totalTEHrs, totalRetHrs,
+    dDR, dDF, vales, prevSocial, valesBase, prevBase, sueldoFiscalPeriodo, sueldoRealPeriodo, altaImss,
+    diasA, diasCuentan, diasV, diasD, diasF, septimoDias, asistenciasPagadas, incidencias, totalTEHrs, totalRetHrs,
     asistMonto, septimo, te, teRetro, teRetroHrs, primaFiscal, primaEfectivo,
     incentivos, retardoMonto, prestDesc, descuentoProducto: descuentoProducto || 0, bono: bono || 0,
     retroactivo: retroactivo || 0, retroactivoTotal: (retroactivo || 0) + teRetro,
-    totalPerc, totalDed, neto, deposito, depositoBanco, efectivo,
-    infonavit, comedor,
-    isr: parseFloat(nomina?.isr || 0),
-    imss: parseFloat(nomina?.imss || 0),
+    totalPerc, totalDed, neto,
+    depositoFiscal, depositoCorregido, tieneCorregido,
+    deposito: depositoCorregido, // compat: "depósito total" = el corregido (o el fiscal por defecto)
+    depositoBanco, efectivo,
+    infonavit, comedor, isr, imss,
     comisiones: parseFloat(nomina?.comisiones || 0),
     retroactivos: parseFloat(nomina?.retroactivos || 0),
   };

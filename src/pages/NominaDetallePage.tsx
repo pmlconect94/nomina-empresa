@@ -73,9 +73,20 @@ export function NominaDetallePage() {
       supabase.from('bono_permanente_excluido').select('bono_permanente_id').eq('semana_id', sem.id),
     ]);
     setEmpleados(empRes.data || []);
-    const nomMap: any = {}; (nomRes.data || []).forEach((n) => (nomMap[n.empleado_id] = n)); setNominas(nomMap);
 
-    const nomIds = (nomRes.data || []).map((n) => n.id);
+    // Asegura que TODO empleado activo de este esquema tenga su fila en `nominas`
+    // (p.ej. si se dio de alta DESPUÉS de crear la nómina). Solo si sigue abierta.
+    let nominasData: any[] = nomRes.data || [];
+    const conNomina = new Set(nominasData.map((n: any) => n.empleado_id));
+    const faltantes = (empRes.data || []).filter((e: any) => !conNomina.has(e.id));
+    if (faltantes.length && sem.status !== 'timbrada') {
+      const { data: nuevas } = await supabase.from('nominas').insert(faltantes.map((e: any) => ({ semana_id: sem.id, empleado_id: e.id }))).select();
+      if (nuevas?.length) nominasData = [...nominasData, ...nuevas];
+    }
+
+    const nomMap: any = {}; nominasData.forEach((n: any) => (nomMap[n.empleado_id] = n)); setNominas(nomMap);
+
+    const nomIds = nominasData.map((n: any) => n.id);
     const aMap: any = {};
     if (nomIds.length) {
       const { data: aData } = await supabase.from('asistencias').select('*').in('nomina_id', nomIds);
