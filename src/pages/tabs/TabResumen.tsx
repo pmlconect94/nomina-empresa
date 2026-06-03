@@ -38,10 +38,10 @@ function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
           <Linea label={`Asistencias (${c.diasA} días)`} value={c.asistMonto} />
           <Linea label="Séptimo día / descansos" value={c.septimo} />
           <Linea label={`Horas extra (${c.totalTEHrs}h)`} value={c.te} />
-          <Linea label={`Horas extra retro (${c.teRetroHrs}h)`} value={c.teRetro} />
           <Linea label="Viajes / incentivos" value={c.incentivos} />
           <Linea label="Bono" value={c.bono} />
-          <Linea label="Retroactivo (viajes)" value={c.retroactivo} />
+          <Linea label="Retroactivo · viajes" value={c.retroactivo} />
+          <Linea label={`Retroactivo · horas extra (${c.teRetroHrs}h)`} value={c.teRetro} />
           <Linea label="Prima vacacional" value={c.primaEfectivo} />
           <Linea label="Comisiones" value={c.comisiones} />
           <Linea label="Retroactivos" value={c.retroactivos} />
@@ -173,10 +173,10 @@ export function TabResumen({ calcData }: { calcData: any[]; semana: any }) {
                   <td className="mono">{e.id_banco ?? '—'}</td>
                   <td className="right mono">{fmt(c.asistMonto)}</td>
                   <td className="right mono">{fmt(c.septimo)}</td>
-                  <td className="right mono" title={c.teRetro > 0 ? `Incluye ${fmt(c.teRetro)} de HE retro (${c.teRetroHrs}h)` : undefined}>{(c.te + c.teRetro) > 0 ? fmt(c.te + c.teRetro) : '—'}</td>
+                  <td className="right mono">{c.te > 0 ? fmt(c.te) : '—'}</td>
                   <td className="right mono">{c.incentivos > 0 ? fmt(c.incentivos) : '—'}</td>
                   <td className="right mono pos">{c.bono > 0 ? fmt(c.bono) : '—'}</td>
-                  <td className="right mono pos">{c.retroactivo > 0 ? fmt(c.retroactivo) : '—'}</td>
+                  <td className="right mono pos" title={c.teRetro > 0 ? `Incluye ${fmt(c.teRetro)} de HE retro (${c.teRetroHrs}h)` : undefined}>{c.retroactivoTotal > 0 ? fmt(c.retroactivoTotal) : '—'}</td>
                   <td className="right mono">{c.infonavit > 0 ? '-' + fmt(c.infonavit) : '—'}</td>
                   <td className="right mono">{c.comedor > 0 ? '-' + fmt(c.comedor) : '—'}</td>
                   <td className="right mono">{c.retardoMonto > 0 ? '-' + fmt(c.retardoMonto) : '—'}</td>

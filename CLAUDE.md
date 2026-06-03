@@ -396,6 +396,19 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
 - **calc:** `calcularNomina` recibe `retroactivo` (incentivo viaje retro → bucket Retroactivo) y
   `horasExtraRetro` (→ se suma a `te`). Expone `te`, `teRetro`, `teRetroHrs`.
 - **DB (aditivo):** `viajes.retroactivo` (bool) y `nomina_retroactivo.horas` (numeric).
+
+### 2026-06-02 — HE retro → Retroactivo, día de la semana anterior, alta masiva de sueldos
+- **HE retro suma a Retroactivo, no a Horas extra:** `calc` expone `retroactivoTotal = retroactivo
+  (viaje) + teRetro (HE retro)`; el Resumen muestra ese total en la columna **Retro.** y deja
+  **T. extra** solo con las HE normales. El recibo separa "Retroactivo · viajes" y "Retroactivo ·
+  horas extra".
+- **HE retro: día con calendario (semana anterior):** en la pestaña **HE retro** el campo
+  "periodo de origen" se reemplazó por un **selector de fecha** limitado a los 7 días previos al
+  inicio del periodo (`min`/`max`). Se guarda en `nomina_retroactivo.periodo_origen` (ISO).
+- **Alta masiva de sueldos (32 empleados):** cargados desde `EMPLEADOS_SUELDOS.xlsx` replicando la
+  pantalla SUELDO: por empleado se cerró la vigencia previa, se insertó un movimiento de **alta**
+  (sueldo periodo real/fiscal, diario ÷15/÷7, SDI por antigüedad, vales, previsión) y se sincronizó
+  la ficha (`sd_real/sd_fiscal` = diario×7, vales, previsión, **ID Toka/Banco/NOMEX**, esquema).
 - **Fiscal:** agregada la columna **ID NOMEX** con orden por ese ID.
 
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->

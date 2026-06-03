@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { MOTIVOS_TE } from '@/lib/calc';
-import { fmt, fmtFecha } from '@/lib/format';
+import { fmt, fmtFecha, toISO } from '@/lib/format';
 import { Icon } from '@/components/Icon';
 
 // Horas extra RETROACTIVAS: horas de otro periodo pagadas en esta nómina.
@@ -15,6 +15,13 @@ export function TabRetroactivos({ semana, nominas, empleados, canEdit, onChanged
   const [modalEmp, setModalEmp] = useState<any>(null);
   const [form, setForm] = useState<any>({ horas: '', proposito: MOTIVOS_TE[0], periodo_origen: '' });
   const [saving, setSaving] = useState(false);
+
+  // El día de origen solo puede ser de la SEMANA ANTERIOR al inicio de este periodo.
+  const _ini = new Date(semana.fecha_inicio + 'T12:00:00');
+  const semAntFin = new Date(_ini); semAntFin.setDate(_ini.getDate() - 1);
+  const semAntIni = new Date(_ini); semAntIni.setDate(_ini.getDate() - 7);
+  const minDia = toISO(semAntIni);
+  const maxDia = toISO(semAntFin);
 
   useEffect(() => { fetchItems(); }, [semana.id]);
   async function fetchItems() {
@@ -29,6 +36,7 @@ export function TabRetroactivos({ semana, nominas, empleados, canEdit, onChanged
   async function agregar() {
     const horas = parseFloat(form.horas) || 0;
     if (horas <= 0) { toast.error('Captura las horas'); return; }
+    if (!form.periodo_origen) { toast.error('Selecciona el día (semana anterior)'); return; }
     setSaving(true);
     const { error } = await supabase.from('nomina_retroactivo').insert({
       semana_id: semana.id, nomina_id: nominas[modalEmp.id]?.id, empleado_id: modalEmp.id,
@@ -47,8 +55,8 @@ export function TabRetroactivos({ semana, nominas, empleados, canEdit, onChanged
   return (
     <div>
       <p className="muted text-sm" style={{ marginTop: 0 }}>
-        Horas extra de <strong>otro periodo</strong> que se pagan en esta nómina. Capturas las horas y el propósito;
-        el monto se calcula igual que las horas extra normales y <strong>se suma al total de Horas extra</strong>.
+        Horas extra de la <strong>semana anterior</strong> que se pagan en esta nómina. Capturas las horas, el propósito
+        y el día; el monto se calcula igual que las horas extra normales y <strong>se suma a la columna Retroactivo</strong>.
       </p>
       <div className="hstack" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
         <h3 className="card-title">Horas extra retroactivas</h3>
@@ -86,7 +94,7 @@ export function TabRetroactivos({ semana, nominas, empleados, canEdit, onChanged
                   <div className="form-grid form-grid-3" style={{ alignItems: 'end' }}>
                     <div><label className="field-label">Horas</label><input className="field-input mono" type="number" step="0.5" min="0" autoFocus value={form.horas} onChange={(e) => setForm((f: any) => ({ ...f, horas: e.target.value }))} /></div>
                     <div><label className="field-label">Propósito</label><select className="field-input" value={form.proposito} onChange={(e) => setForm((f: any) => ({ ...f, proposito: e.target.value }))}>{MOTIVOS_TE.map((m) => <option key={m} value={m}>{m}</option>)}</select></div>
-                    <div><label className="field-label">Periodo de origen</label><input className="field-input" placeholder="ej. semana pasada" value={form.periodo_origen} onChange={(e) => setForm((f: any) => ({ ...f, periodo_origen: e.target.value }))} /></div>
+                    <div><label className="field-label">Día (semana anterior)</label><input className="field-input" type="date" min={minDia} max={maxDia} value={form.periodo_origen} onChange={(e) => setForm((f: any) => ({ ...f, periodo_origen: e.target.value }))} /></div>
                   </div>
                   <div className="hstack" style={{ justifyContent: 'space-between', marginTop: 10 }}>
                     <span className="text-sm muted">Monto aprox.: <strong className="pos">{fmt(montoHE(modalEmp, parseFloat(form.horas) || 0))}</strong></span>
@@ -96,13 +104,13 @@ export function TabRetroactivos({ semana, nominas, empleados, canEdit, onChanged
               )}
               <div className="form-section-title">Registradas</div>
               <table className="tbl">
-                <thead><tr><th>Propósito</th><th>Periodo origen</th><th className="right">Horas</th><th className="right">Monto</th><th>Capturado</th>{canEdit && <th></th>}</tr></thead>
+                <thead><tr><th>Propósito</th><th>Día</th><th className="right">Horas</th><th className="right">Monto</th><th>Capturado</th>{canEdit && <th></th>}</tr></thead>
                 <tbody>
                   {delEmp(modalEmp.id).length === 0 && <tr><td colSpan={canEdit ? 6 : 5}><div className="empty"><div className="empty-title">Sin horas extra retro</div></div></td></tr>}
                   {delEmp(modalEmp.id).map((i) => (
                     <tr key={i.id}>
                       <td><span className="badge badge-blue">{i.descripcion || '—'}</span></td>
-                      <td className="text-xs">{i.periodo_origen || '—'}</td>
+                      <td className="text-xs">{i.periodo_origen ? fmtFecha(i.periodo_origen) : '—'}</td>
                       <td className="right mono">{i.horas} h</td>
                       <td className="right mono pos">{fmt(montoHE(modalEmp, i.horas))}</td>
                       <td className="muted text-xs">{fmtFecha(i.created_at?.slice(0, 10))}</td>

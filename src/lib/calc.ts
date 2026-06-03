@@ -33,8 +33,9 @@ export function descuentoPrestamoMonto(monto: number, tipo: string): number {
   return tipo === 'semanal' ? monto * 0.1 : monto * 0.2;
 }
 
-// retroactivo = incentivo de VIAJES retroactivos (cuenta como Retroactivo).
-// horasExtraRetro = horas extra retroactivas (se suman a las Horas extra del periodo).
+// retroactivo = incentivo de VIAJES retroactivos.
+// horasExtraRetro = horas extra retroactivas (su monto se suma a la columna RETROACTIVO,
+//   junto con el incentivo de viajes retro; NO a las horas extra normales).
 export function calcularNomina(empleado: any, nomina: any, asistencias: any[], incentivosViaje: number, descuentoPrestamo: number, tipo: string = 'semanal', descuentoProducto: number = 0, bono: number = 0, retroactivo: number = 0, horasExtraRetro: number = 0) {
   const sdFiscal = empleado.sd_fiscal || 0; // semanal-equivalente (diario × 7)
   const sdReal = empleado.sd_real || 0;
@@ -66,7 +67,7 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   const descansoFactor = tipo === 'quincenal' ? (2 / 13) : (1 / 6);
   const septimo = dDR * (diasCuentan * descansoFactor);
   const te = totalTEHrs * (dDR / 8) * 2;
-  // Horas extra retroactivas: mismo cálculo (horas × valor hora × 2), se suman a las HE.
+  // Horas extra retroactivas: mismo cálculo (horas × valor hora × 2), pero cuenta en Retroactivo.
   const teRetroHrs = horasExtraRetro || 0;
   const teRetro = teRetroHrs * (dDR / 8) * 2;
   const primaFiscal = diasV > 0 ? dDF * diasV * 0.25 : 0;
@@ -92,7 +93,8 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
     dDR, dDF, vales, prevSocial, sueldoFiscalPeriodo, sueldoRealPeriodo, altaImss,
     diasA, diasCuentan, diasV, diasF, totalTEHrs, totalRetHrs,
     asistMonto, septimo, te, teRetro, teRetroHrs, primaFiscal, primaEfectivo,
-    incentivos, retardoMonto, prestDesc, descuentoProducto: descuentoProducto || 0, bono: bono || 0, retroactivo: retroactivo || 0,
+    incentivos, retardoMonto, prestDesc, descuentoProducto: descuentoProducto || 0, bono: bono || 0,
+    retroactivo: retroactivo || 0, retroactivoTotal: (retroactivo || 0) + teRetro,
     totalPerc, totalDed, neto, deposito, depositoBanco, efectivo,
     infonavit, comedor,
     isr: parseFloat(nomina?.isr || 0),
