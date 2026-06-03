@@ -212,24 +212,42 @@ semana). `viajes` tiene `retroactivo` (bool). **Vista** `v_incidencias` (KPIs: d
 
 ---
 
-## Estado actual
+## Estado actual (2026-06-02)
 
-- ✅ Funcionando en producción tras recrear la BD y reconfigurar Vercel (2026-06-01).
-- ⚠️ La BD es nueva → **tablas vacías**. Falta capturar empleados y nóminas (o importar respaldo).
+- ✅ En producción (https://nomina-empresa.vercel.app). BD en Supabase `crm-pml`, schema `nomina`.
+- ✅ **32 empleados cargados** con sueldos (real/fiscal por periodo), vales, previsión, SDI e IDs
+  (Toka/Banco/NOMEX) — alta masiva desde `EMPLEADOS_SUELDOS.xlsx`.
+- ✅ 3 préstamos a medias dados de alta (María Isabel, Joselyn, Claudia) con fecha 2026-05-01 para
+  que descuenten en la nómina del **25–31 may**.
+- 🔜 **Se estaba armando la nómina semanal del 25–31 may** con los cambios recientes de cálculo.
 
-## Revisión de cálculos (hallazgos 2026-06-02, pendientes de validar con contabilidad)
+## 🧭 Para la próxima sesión de Claude Code (LEER)
 
-Lógica en `lib/supabase.js → calcularNomina`. Esquema **dual**: `sd_fiscal` (lo declarado a IMSS)
-y `sd_real` (lo que realmente se paga). Hallazgos a revisar antes de hacer pruebas:
+**Entorno (Windows):**
+- Usar **PowerShell** para node/npm/git/vercel — en el shell `bash` de las tools, `node`/`npm` NO
+  están en el PATH (hay que prefijar `$env:Path = "$env:ProgramFiles\nodejs;$env:Path"`).
+- Para la BD: **MCP de Supabase** (project_id `xjbhfeqcjjqyjkvdbyxy`, schema `nomina`). Las tablas
+  de nómina NO están en `public` (ahí está el WMS — no tocar).
+- Deploy: **`git push` a `main`** → auto-deploy Vercel. NO usar `vercel deploy` por CLI (rompe el
+  alias del dominio corto). MCP de Vercel: projectId `prj_123NF7kQh51ipCzUz6gigeX6gdyf`,
+  teamId `team_50ehqq8196yW0uMKTuEO8eXF`.
+- Flujo seguro: editar → `npm run build` (tsc) → commit → push → verificar prod 200.
 
-1. **Retardos sobre-cobrados:** `retardo_min/60 * dDR` multiplica horas por el salario **diario**,
-   no por el por-hora. Debería ser `horas * (dDR/8)`. Hoy un retardo cuesta ~8× de más.
-2. **Columna "Faltas" cosmética:** en `TabResumen` muestra `diasF * dDR` en negativo, pero esa
-   resta **no** se aplica al neto (las faltas ya no se pagan porque solo se paga 'A'). Confunde.
-3. **Quincenal con matemática semanal:** `sd/7` y séptimo `min(días,6)/6` son de semana. En
-   quincenal el 7mo día y etiquetas de día salen mal.
-4. **Prima vacacional fiscal** se calcula (`primaFiscal`) pero no se usa; solo entra la efectiva.
-5. **SDI (Salario Diario Integrado)** aún no existe; se introduce con el modelo de movimientos.
+**Pendiente de validar / siguientes pasos:**
+- ✔️ Validar la **nómina 25–31 may** con el cálculo nuevo (incidencias resta/no resta, retardo en
+  horas, sin prima vacacional, préstamo 10%). Comparar montos contra lo esperado por contabilidad.
+- 📊 **Dashboard de KPIs de incidencias** (fase F5): ya existe la vista `nomina.v_incidencias`
+  (días por código + HE + retardo por semana/empleado) lista para consumir.
+- 🏖️ **F4 Vacaciones**: cálculo de saldo por antigüedad (helpers `diasVacacionesLFT`/`antiguedadAnios`
+  en `calc.ts` ya existen). La prima vacacional se quitó del neto a propósito.
+
+**Datos a confirmar con el usuario (posibles errores del Excel):**
+- **Miguel Angel Villalobos**: quedó **sin NOMEX** (el Excel traía "-").
+- **NOMEX 57 duplicado**: Alfredo Flores y Yunnuen Torres lo comparten.
+- **Alejandro Abaroa**: su sueldo real se fijó en **25,632** (el Excel; antes la BD tenía 35,000).
+
+**Hallazgos de cálculo viejos — YA RESUELTOS:** retardos (ahora por hora), quincenal (factor 2/13 +
+sueldo por periodo), prima vacacional (quitada), SDI (existe vía movimientos de sueldo).
 
 ## Roadmap RH / Nómina (propuesto, por fases)
 
