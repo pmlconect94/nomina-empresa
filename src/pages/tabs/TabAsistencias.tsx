@@ -145,12 +145,12 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, viajeD
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 6 }}>
           {[
             { c: 'A', n: 'Asistencia', resta: false },
-            { c: 'F', n: 'Falta', resta: false },
-            { c: 'D', n: 'Descanso', resta: true },
+            { c: 'D', n: 'Descanso (paga vía séptimo)', resta: false },
             { c: 'V', n: 'Vacación', resta: false },
-            { c: 'PSG', n: 'Permiso sin goce de sueldo', resta: true },
             { c: 'PCG', n: 'Permiso con goce de sueldo', resta: false },
             { c: 'TXT', n: 'Tiempo x Tiempo', resta: false },
+            { c: 'F', n: 'Falta', resta: true },
+            { c: 'PSG', n: 'Permiso sin goce de sueldo', resta: true },
             { c: 'SUS', n: 'Suspensión', resta: true },
           ].map((it) => (
             <div key={it.c} className="hstack text-xs" style={{ gap: 6, justifyContent: 'space-between', padding: '3px 6px', borderRadius: 6, background: COLOR[it.c] || 'var(--ink-50)' }}>

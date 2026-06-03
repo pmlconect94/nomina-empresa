@@ -445,6 +445,18 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
     `prestamo_descuentos` (nomina/semana NULL); el descuento por nómina sigue siendo 10% del monto.
   - Alta de 3 préstamos a medias (María Isabel 5000/saldo 1500, Joselyn 6000/2400, Claudia
     3000/1200), semanal, fecha 2026-05-01 para que descuenten en la nómina del 25–31 may.
+
+### 2026-06-02 — Cálculo por incidencia (resta/no resta) + KPIs
+- **Tratamiento de pago por código** (regla del usuario): **NO restan / se pagan (asistencia):**
+  A, **D**, V, PCG, TXT. **Restan / no se pagan (falta):** **F**, PSG, SUS.
+- En `calcularNomina`: `COD_PAGA = [A,V,PCG,TXT]` se pagan a tarifa diaria y cuentan para el
+  séptimo; `COD_FALTA = [F,PSG,SUS]` no se pagan. El **Descanso (D)** se paga vía el séptimo día
+  (por eso no entra en `asistMonto`, para no duplicar). Antes solo se pagaba 'A' (V/PCG/TXT no
+  recibían el día base) → corregido.
+- **KPIs:** `calc` devuelve `incidencias` (conteo por código) y `diasD`. El detalle por día sigue
+  en `asistencias`; nueva **vista `nomina.v_incidencias`** (días por código + HE + retardo, por
+  semana/empleado) lista para el dashboard de incidencias (F5).
+- Leyenda de Asistencias corregida (F = resta, D = no resta).
 - **Fiscal:** agregada la columna **ID NOMEX** con orden por ese ID.
 
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->

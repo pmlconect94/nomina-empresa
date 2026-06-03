@@ -53,15 +53,24 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   const prevSocial = !altaImss ? 0 : ((empleado.prevision_social || 0) > 0 ? empleado.prevision_social : sueldoFiscalPeriodo * 0.1);
 
   const dias = asistencias || [];
-  const diasA = dias.filter((d) => d.codigo === 'A').length;
-  const diasCuentan = dias.filter((d) => ['A', 'V', 'PCG'].includes(d.codigo)).length;
+  // Trato de pago por incidencia (regla del usuario):
+  //  NO restan → trato ASISTENCIA (se pagan): A, D, V, PCG, TXT.
+  //  Restan    → trato FALTA (no se pagan):   F, PSG, SUS.
+  //  El Descanso (D) se paga vía el SÉPTIMO día, por eso no entra en asistMonto (no se duplica).
+  const COD_PAGA = ['A', 'V', 'PCG', 'TXT']; // pagan a tarifa diaria + cuentan para el séptimo
+  const COD_FALTA = ['F', 'PSG', 'SUS'];     // restan (no se pagan)
+  const diasCuentan = dias.filter((d) => COD_PAGA.includes(d.codigo)).length;
+  const diasA = diasCuentan;                 // días pagados como asistencia
   const diasV = dias.filter((d) => d.codigo === 'V').length;
-  const diasF = dias.filter((d) => ['F', 'PSG', 'SUS'].includes(d.codigo)).length;
+  const diasD = dias.filter((d) => d.codigo === 'D').length;
+  const diasF = dias.filter((d) => COD_FALTA.includes(d.codigo)).length;
+  // Desglose de TODAS las incidencias capturadas (para KPIs). El detalle por día vive en `asistencias`.
+  const incidencias = CODIGOS_ASISTENCIA.reduce((acc, c) => { acc[c] = dias.filter((d) => d.codigo === c).length; return acc; }, {} as Record<string, number>);
   const totalTEHrs = dias.reduce((s, d) => s + (parseFloat(d.te_horas) || 0), 0);
   // El retardo se captura directamente en HORAS (no minutos).
   const totalRetHrs = dias.reduce((s, d) => s + (parseFloat(d.retardo_min) || 0), 0);
 
-  const asistMonto = diasA * dDR;
+  const asistMonto = diasCuentan * dDR;
   // Descansos pagados según el esquema:
   //  - Semanal: 6 días laborables + 1 descanso → factor 1/6.
   //  - Quincenal: 13 días laborables + 2 descansos → factor 2/13.
@@ -93,7 +102,7 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
 
   return {
     dDR, dDF, vales, prevSocial, sueldoFiscalPeriodo, sueldoRealPeriodo, altaImss,
-    diasA, diasCuentan, diasV, diasF, totalTEHrs, totalRetHrs,
+    diasA, diasCuentan, diasV, diasD, diasF, incidencias, totalTEHrs, totalRetHrs,
     asistMonto, septimo, te, teRetro, teRetroHrs, primaFiscal, primaEfectivo,
     incentivos, retardoMonto, prestDesc, descuentoProducto: descuentoProducto || 0, bono: bono || 0,
     retroactivo: retroactivo || 0, retroactivoTotal: (retroactivo || 0) + teRetro,
