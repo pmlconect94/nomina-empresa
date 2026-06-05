@@ -1,5 +1,14 @@
+import * as XLSX from 'xlsx';
 import { fmt, fmtPeriodo, fmtFecha } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
+
+// Genera y descarga un .xlsx a partir de una matriz [filas][columnas].
+function descargarXLSX(aoa: (string | number)[][], sheetName: string, filename: string) {
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31));
+  XLSX.writeFile(wb, filename);
+}
 
 // Formatos de impresión / exportación de la nómina.
 export type TipoImpresion = 'incidencias' | 'viajeshe' | 'dispersion';
@@ -233,53 +242,43 @@ export async function imprimirNomina(tipo: TipoImpresion, calcData: any[], seman
   }
 }
 
-// ───────────────────────── EXPORT VALES (CSV/Excel) ─────────────────────────
-export function exportarValesCSV(calcData: any[], semana: any) {
+// ───────────────────────── EXPORT VALES (.xlsx) ─────────────────────────
+export function exportarValesXLSX(calcData: any[], semana: any) {
   const data = [...calcData].sort(byBanco).filter((d) => d.calc.altaImss && (d.calc.vales || 0) > 0.005);
   const sinToka = data.filter((d) => d.empleado.id_toka == null || d.empleado.id_toka === '');
   const buenos = data.filter((d) => !(d.empleado.id_toka == null || d.empleado.id_toka === ''));
 
-  const lineas = ['ID,NOMINA,MONTO,PRODUCTO'];
-  buenos.forEach((d) => {
-    const monto = (Math.round((d.calc.vales || 0) * 100) / 100).toFixed(2);
-    lineas.push(`${VALES_ID_CUENTA},${d.empleado.id_toka},${monto},${VALES_PRODUCTO}`);
-  });
-  const csv = lineas.join('\r\n');
+  if (!buenos.length) { alert('No hay empleados con vales (y con ID Toka) en esta nómina.'); return; }
 
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const aoa: (string | number)[][] = [['ID', 'NOMINA', 'MONTO', 'PRODUCTO']];
+  buenos.forEach((d) => {
+    const monto = Math.round((d.calc.vales || 0) * 100) / 100;
+    aoa.push([Number(VALES_ID_CUENTA), d.empleado.id_toka, monto, VALES_PRODUCTO]);
+  });
   const periodo = semana ? `${semana.fecha_inicio}_a_${semana.fecha_fin}` : 'nomina';
-  a.href = url; a.download = `vales_easyvale_${periodo}.csv`; a.click();
-  URL.revokeObjectURL(url);
+  descargarXLSX(aoa, 'Vales', `vales_easyvale_${periodo}.xlsx`);
 
   if (sinToka.length) {
     alert(`Se exportaron ${buenos.length} empleados con vales.\n\n${sinToka.length} con vales NO se incluyeron por no tener ID Toka:\n` + sinToka.map((d) => `· ${d.empleado.nombre}`).join('\n'));
   }
 }
 
-// ───────────────────────── EXPORT DEPÓSITO A BANCO (CSV/Excel) ─────────────────────────
+// ───────────────────────── EXPORT DEPÓSITO A BANCO (.xlsx) ─────────────────────────
 // Tres columnas: ID Banco, Nombre y monto de depósito a banco. Solo quienes depositan (> 0).
-export function exportarDispersionBancoCSV(calcData: any[], semana: any) {
+export function exportarDispersionBancoXLSX(calcData: any[], semana: any) {
   const data = [...calcData].sort(byBanco).filter((d) => (d.calc.depositoBanco || 0) > 0.005);
   const sinBanco = data.filter((d) => d.empleado.id_banco == null || d.empleado.id_banco === '');
 
-  const lineas = ['ID BANCO,NOMBRE,DEPOSITO'];
-  data.forEach((d) => {
-    const monto = (Math.round((d.calc.depositoBanco || 0) * 100) / 100).toFixed(2);
-    const nombre = String(d.empleado.nombre || '').replace(/"/g, '""');
-    lineas.push(`${d.empleado.id_banco ?? ''},"${nombre}",${monto}`);
-  });
-  const csv = lineas.join('\r\n');
-
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const periodo = semana ? `${semana.fecha_inicio}_a_${semana.fecha_fin}` : 'nomina';
-  a.href = url; a.download = `deposito_banco_${periodo}.csv`; a.click();
-  URL.revokeObjectURL(url);
-
   if (!data.length) { alert('No hay empleados con depósito a banco en esta nómina.'); return; }
+
+  const aoa: (string | number)[][] = [['ID BANCO', 'NOMBRE', 'DEPOSITO']];
+  data.forEach((d) => {
+    const monto = Math.round((d.calc.depositoBanco || 0) * 100) / 100;
+    aoa.push([d.empleado.id_banco ?? '', d.empleado.nombre || '', monto]);
+  });
+  const periodo = semana ? `${semana.fecha_inicio}_a_${semana.fecha_fin}` : 'nomina';
+  descargarXLSX(aoa, 'Deposito banco', `deposito_banco_${periodo}.xlsx`);
+
   if (sinBanco.length) {
     alert(`Se exportaron ${data.length} empleados con depósito a banco.\n\n${sinBanco.length} tienen depósito pero NO tienen ID Banco (salen con ID vacío):\n` + sinBanco.map((d) => `· ${d.empleado.nombre}`).join('\n'));
   }
