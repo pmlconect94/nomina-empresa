@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { fmt, fmtFecha, nomexLabel } from '@/lib/format';
 import { Icon } from '@/components/Icon';
-import { imprimirNomina, exportarValesCSV } from './printNomina';
+import { imprimirNomina, exportarValesCSV, exportarDispersionBancoCSV } from './printNomina';
 
 function Linea({ label, value, neg, bold, red }: any) {
   if (!value && !bold) return null;
@@ -118,7 +118,7 @@ export function TabResumen({ calcData, semana }: { calcData: any[]; semana: any 
     { label: '🖨  Viajes y horas extra', run: () => imprimirNomina('viajeshe', calcData, semana) },
     { label: '🖨  Dispersión', run: () => imprimirNomina('dispersion', calcData, semana) },
     { label: '⬇  Vales — Excel (CSV)', run: () => exportarValesCSV(calcData, semana) },
-    { label: 'Dispersión banco (próximamente)', run: () => {}, disabled: true },
+    { label: '⬇  Depósito a banco — Excel (CSV)', run: () => exportarDispersionBancoCSV(calcData, semana) },
   ];
 
   const t = calcData.reduce((acc, d) => {

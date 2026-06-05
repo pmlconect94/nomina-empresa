@@ -257,3 +257,30 @@ export function exportarValesCSV(calcData: any[], semana: any) {
     alert(`Se exportaron ${buenos.length} empleados con vales.\n\n${sinToka.length} con vales NO se incluyeron por no tener ID Toka:\n` + sinToka.map((d) => `· ${d.empleado.nombre}`).join('\n'));
   }
 }
+
+// ───────────────────────── EXPORT DEPÓSITO A BANCO (CSV/Excel) ─────────────────────────
+// Tres columnas: ID Banco, Nombre y monto de depósito a banco. Solo quienes depositan (> 0).
+export function exportarDispersionBancoCSV(calcData: any[], semana: any) {
+  const data = [...calcData].sort(byBanco).filter((d) => (d.calc.depositoBanco || 0) > 0.005);
+  const sinBanco = data.filter((d) => d.empleado.id_banco == null || d.empleado.id_banco === '');
+
+  const lineas = ['ID BANCO,NOMBRE,DEPOSITO'];
+  data.forEach((d) => {
+    const monto = (Math.round((d.calc.depositoBanco || 0) * 100) / 100).toFixed(2);
+    const nombre = String(d.empleado.nombre || '').replace(/"/g, '""');
+    lineas.push(`${d.empleado.id_banco ?? ''},"${nombre}",${monto}`);
+  });
+  const csv = lineas.join('\r\n');
+
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const periodo = semana ? `${semana.fecha_inicio}_a_${semana.fecha_fin}` : 'nomina';
+  a.href = url; a.download = `deposito_banco_${periodo}.csv`; a.click();
+  URL.revokeObjectURL(url);
+
+  if (!data.length) { alert('No hay empleados con depósito a banco en esta nómina.'); return; }
+  if (sinBanco.length) {
+    alert(`Se exportaron ${data.length} empleados con depósito a banco.\n\n${sinBanco.length} tienen depósito pero NO tienen ID Banco (salen con ID vacío):\n` + sinBanco.map((d) => `· ${d.empleado.nombre}`).join('\n'));
+  }
+}
