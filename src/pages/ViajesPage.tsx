@@ -34,7 +34,7 @@ export function ViajesPanel({ semana, canEdit, onChanged }: any) {
     const nf = { ...form, [campo]: valor };
     setForm(nf);
     const { chofer, acomp } = calcIncentivos(nf.hora_llegada, nf.se_quedo_dormir);
-    setIncent({ chofer, acomp, tramo: nf.se_quedo_dormir ? null : getTramo(nf.hora_llegada) });
+    setIncent({ chofer, acomp, tramo: getTramo(nf.hora_llegada) });
   }
 
   async function guardar() {
@@ -91,7 +91,7 @@ export function ViajesPanel({ semana, canEdit, onChanged }: any) {
     const nf = { fecha: v.fecha || '', destino: v.destino || '', cliente: v.cliente || '', vehiculo: v.vehiculo || '', chofer_id: v.chofer_id || '', acompanante_id: v.acompanante_id || '', hora_salida: v.hora_salida || '', hora_llegada: v.hora_llegada || '', se_quedo_dormir: !!v.se_quedo_dormir };
     setForm(nf);
     const { chofer, acomp } = calcIncentivos(nf.hora_llegada, nf.se_quedo_dormir);
-    setIncent({ chofer, acomp, tramo: nf.se_quedo_dormir ? null : getTramo(nf.hora_llegada) });
+    setIncent({ chofer, acomp, tramo: getTramo(nf.hora_llegada) });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   function cancelarEdicion() { setEditId(null); setForm({ ...EMPTY }); setIncent({ chofer: 0, acomp: 0, tramo: null }); }

@@ -195,7 +195,8 @@ semana). `viajes` tiene `retroactivo` (bool). **Vista** `v_incidencias` (KPIs: d
 - **Prima vacacional:** ❌ **NO se suma** al neto (se quitó). V paga el día completo, sin el 25%.
 - **Viajes:** incentivo por **tramo de hora de llegada** (5 tramos, `TAB_CHOFER`/`TAB_ACOMP`):
   7am-3pm 200/100 · 3pm-7pm 400/200 · 7pm-11pm 500/300 · 11pm-1am 600/400 · **1am-7am 700/500**.
-  "Se quedó a dormir" = tope (1am-7am) + reinicio del tabular (tramo 0) = **chofer 900 / acomp 600**.
+  "Se quedó a dormir" = **tope $700/$500 + el tabular de la hora de llegada del día siguiente**
+  (ej.: llega 8pm → 700/500 + 500/300 = chofer 1200 / acomp 800).
   El incentivo se **congela** en `viajes.incent_*` al capturar (editar recalcula). Solo área
   Logística/Almacén. **Viaje retroactivo** (fecha ≤7 días antes del periodo) cuenta en Retroactivo.
 - **Retroactivos:** viajes retro + **HE retro** (pestaña "HE retro": horas + propósito + día de la

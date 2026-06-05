@@ -26,9 +26,14 @@ export function getTramo(horaStr?: string | null): number | null {
 }
 
 export function calcIncentivos(horaLlegada?: string | null, dormir?: boolean) {
-  // "Se quedó a dormir" = tope (tramo 4) + reinicio del tabular (tramo 0, viaje del día siguiente).
-  if (dormir) return { chofer: TAB_CHOFER[4] + TAB_CHOFER[0], acomp: TAB_ACOMP[4] + TAB_ACOMP[0] };
   const t = getTramo(horaLlegada);
+  if (dormir) {
+    // "Se quedó a dormir" = TOPE por dormir (700/500) + el tabular de la HORA DE LLEGADA del
+    // día siguiente. Ej.: llega 8pm al día siguiente → 700/500 + (500/300 del tramo 7pm-11pm).
+    const sigC = t !== null ? TAB_CHOFER[t] : 0;
+    const sigA = t !== null ? TAB_ACOMP[t] : 0;
+    return { chofer: TAB_CHOFER[4] + sigC, acomp: TAB_ACOMP[4] + sigA };
+  }
   if (t === null) return { chofer: 0, acomp: 0 };
   return { chofer: TAB_CHOFER[t], acomp: TAB_ACOMP[t] };
 }
