@@ -9,21 +9,25 @@
 export const CODIGOS_ASISTENCIA = ['A', 'F', 'D', 'V', 'PSG', 'PCG', 'TXT', 'SUS'];
 export const MOTIVOS_TE = ['Inventario', 'Descarga', 'Entregas local', 'Entregas 34', 'Entregas Higuerillas', 'Frigoríficos', 'Acomodo cámaras', 'Facturación', 'Junta', 'Planta', 'Desayuno'];
 export const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-export const TAB_CHOFER = [200, 400, 500, 600];
-export const TAB_ACOMP = [100, 200, 300, 400];
+// Tabulador de incentivos por tramo de hora de llegada (5 tramos):
+//  0: 7am-3pm · 1: 3pm-7pm · 2: 7pm-11pm · 3: 11pm-1am · 4: 1am-7am (madrugada).
+export const TAB_CHOFER = [200, 400, 500, 600, 700];
+export const TAB_ACOMP = [100, 200, 300, 400, 500];
 
 export function getTramo(horaStr?: string | null): number | null {
   if (!horaStr) return null;
   const [h, m] = horaStr.split(':').map(Number);
   const t = h * 60 + m;
-  if (t >= 7 * 60 && t < 15 * 60) return 0;
-  if (t >= 15 * 60 && t < 19 * 60) return 1;
-  if (t >= 19 * 60 && t < 23 * 60) return 2;
-  return 3;
+  if (t >= 7 * 60 && t < 15 * 60) return 0;   // 7:00am – 3:00pm
+  if (t >= 15 * 60 && t < 19 * 60) return 1;  // 3:00pm – 7:00pm
+  if (t >= 19 * 60 && t < 23 * 60) return 2;  // 7:00pm – 11:00pm
+  if (t >= 23 * 60 || t < 1 * 60) return 3;   // 11:00pm – 1:00am
+  return 4;                                    // 1:00am – 7:00am (madrugada)
 }
 
 export function calcIncentivos(horaLlegada?: string | null, dormir?: boolean) {
-  if (dormir) return { chofer: TAB_CHOFER[3] + TAB_CHOFER[0], acomp: TAB_ACOMP[3] + TAB_ACOMP[0] };
+  // "Se quedó a dormir" = tope (tramo 4) + reinicio del tabular (tramo 0, viaje del día siguiente).
+  if (dormir) return { chofer: TAB_CHOFER[4] + TAB_CHOFER[0], acomp: TAB_ACOMP[4] + TAB_ACOMP[0] };
   const t = getTramo(horaLlegada);
   if (t === null) return { chofer: 0, acomp: 0 };
   return { chofer: TAB_CHOFER[t], acomp: TAB_ACOMP[t] };

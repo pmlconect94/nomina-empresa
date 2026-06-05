@@ -193,8 +193,11 @@ semana). `viajes` tiene `retroactivo` (bool). **Vista** `v_incidencias` (KPIs: d
 - **Horas extra:** `horas × (dDR/8) × 2` (dobles). Motivos en `MOTIVOS_TE` (incluye Junta/Planta/Desayuno).
 - **Retardos:** se capturan **en horas**; descuento = `horas × (dDR/8)` (valor por hora).
 - **Prima vacacional:** ❌ **NO se suma** al neto (se quitó). V paga el día completo, sin el 25%.
-- **Viajes:** incentivo por tramo de hora de llegada (`TAB_CHOFER`/`TAB_ACOMP`); "se quedó a dormir"
-  = pago máx + reinicio. **Viaje retroactivo** (fecha ≤7 días antes del periodo) cuenta en Retroactivo.
+- **Viajes:** incentivo por **tramo de hora de llegada** (5 tramos, `TAB_CHOFER`/`TAB_ACOMP`):
+  7am-3pm 200/100 · 3pm-7pm 400/200 · 7pm-11pm 500/300 · 11pm-1am 600/400 · **1am-7am 700/500**.
+  "Se quedó a dormir" = tope (1am-7am) + reinicio del tabular (tramo 0) = **chofer 900 / acomp 600**.
+  El incentivo se **congela** en `viajes.incent_*` al capturar (editar recalcula). Solo área
+  Logística/Almacén. **Viaje retroactivo** (fecha ≤7 días antes del periodo) cuenta en Retroactivo.
 - **Retroactivos:** viajes retro + **HE retro** (pestaña "HE retro": horas + propósito + día de la
   semana anterior) → suman a la columna/total **Retroactivo**.
 - **Comedor:** $30 por día; semana 5 días, **quincena 10 días** (el 11º pasa a la otra quincena).
