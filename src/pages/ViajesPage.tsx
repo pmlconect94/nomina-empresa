@@ -5,7 +5,7 @@ import { fmt } from '@/lib/format';
 import { calcIncentivos, getTramo, TAB_CHOFER, TAB_ACOMP } from '@/lib/calc';
 import { Icon } from '@/components/Icon';
 
-const TRAMOS = ['7am–3pm', '3pm–7pm', '7pm–11pm', '11pm–1am', '1am–7am'];
+const TRAMOS = ['7am–3pm', '3pm–7pm', '7pm–11pm', '11pm–7am'];
 const EMPTY = { fecha: '', destino: '', cliente: '', vehiculo: '', chofer_id: '', acompanante_id: '', hora_salida: '', hora_llegada: '', se_quedo_dormir: false };
 const AREA_LOGISTICA = 'Logistica/Almacen'; // solo esta área puede ser chofer/acompañante
 

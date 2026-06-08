@@ -9,10 +9,11 @@
 export const CODIGOS_ASISTENCIA = ['A', 'F', 'D', 'V', 'PSG', 'PCG', 'TXT', 'SUS'];
 export const MOTIVOS_TE = ['Inventario', 'Descarga', 'Entregas local', 'Entregas 34', 'Entregas Higuerillas', 'Frigoríficos', 'Acomodo cámaras', 'Facturación', 'Junta', 'Planta', 'Desayuno'];
 export const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-// Tabulador de incentivos por tramo de hora de llegada (5 tramos):
-//  0: 7am-3pm · 1: 3pm-7pm · 2: 7pm-11pm · 3: 11pm-1am · 4: 1am-7am (madrugada).
-export const TAB_CHOFER = [200, 400, 500, 600, 700];
-export const TAB_ACOMP = [100, 200, 300, 400, 500];
+// Tabulador de incentivos por tramo de hora de llegada (4 tramos):
+//  0: 7am-3pm · 1: 3pm-7pm · 2: 7pm-11pm · 3: 11pm-7am.
+export const TAB_CHOFER = [200, 400, 500, 600];
+export const TAB_ACOMP = [100, 200, 300, 400];
+export const DORMIR_EXTRA = 100; // "se quedó a dormir" suma $100 al último tabular
 
 export function getTramo(horaStr?: string | null): number | null {
   if (!horaStr) return null;
@@ -21,18 +22,19 @@ export function getTramo(horaStr?: string | null): number | null {
   if (t >= 7 * 60 && t < 15 * 60) return 0;   // 7:00am – 3:00pm
   if (t >= 15 * 60 && t < 19 * 60) return 1;  // 3:00pm – 7:00pm
   if (t >= 19 * 60 && t < 23 * 60) return 2;  // 7:00pm – 11:00pm
-  if (t >= 23 * 60 || t < 1 * 60) return 3;   // 11:00pm – 1:00am
-  return 4;                                    // 1:00am – 7:00am (madrugada)
+  return 3;                                    // 11:00pm – 7:00am
 }
 
 export function calcIncentivos(horaLlegada?: string | null, dormir?: boolean) {
   const t = getTramo(horaLlegada);
   if (dormir) {
-    // "Se quedó a dormir" = TOPE por dormir (700/500) + el tabular de la HORA DE LLEGADA del
-    // día siguiente. Ej.: llega 8pm al día siguiente → 700/500 + (500/300 del tramo 7pm-11pm).
+    // "Se quedó a dormir" = último tabular + $100 (tope) + el tabular de la HORA DE LLEGADA del
+    // día siguiente. Ej.: tope (600+100)/(400+100) + (500/300 si llega 8pm) = 1200/800.
+    const baseC = TAB_CHOFER[TAB_CHOFER.length - 1] + DORMIR_EXTRA;
+    const baseA = TAB_ACOMP[TAB_ACOMP.length - 1] + DORMIR_EXTRA;
     const sigC = t !== null ? TAB_CHOFER[t] : 0;
     const sigA = t !== null ? TAB_ACOMP[t] : 0;
-    return { chofer: TAB_CHOFER[4] + sigC, acomp: TAB_ACOMP[4] + sigA };
+    return { chofer: baseC + sigC, acomp: baseA + sigA };
   }
   if (t === null) return { chofer: 0, acomp: 0 };
   return { chofer: TAB_CHOFER[t], acomp: TAB_ACOMP[t] };
