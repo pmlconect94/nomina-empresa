@@ -203,22 +203,22 @@ function bodyDispersion(calcData: any[], semana: any): string {
   const fila = (d: any) => {
     const c = d.calc;
     const sueldo = c.asistMonto + c.septimo;
-    const extra = (c.te || 0) + (c.incentivos || 0); // horas extra + incentivos de viajes
-    const vals = [sueldo, c.prestDesc, c.comedor, c.descuentoProducto, c.infonavit, c.retardoMonto, c.bono, c.retroactivoTotal, extra, c.neto, c.depositoBanco, c.efectivo];
+    // Dep. Banco = banco + toka (vales) = depósito fiscal/corregido.
+    const vals = [sueldo, c.prestDesc, c.comedor, c.descuentoProducto, c.infonavit, c.retardoMonto, c.bono, c.retroactivoTotal, (c.te || 0), (c.incentivos || 0), c.neto, c.depositoCorregido, c.efectivo];
     const ded = new Set([1, 2, 3, 4, 5]); // índices de deducciones (rojo)
     return `<tr><td class="c mono">${esc(d.empleado.id_banco ?? '—')}</td><td>${esc(d.empleado.nombre)}</td>${vals.map((v, i) => `<td class="r mono ${ded.has(i) && v > 0 ? 'neg' : ''}">${v ? m(v) : '—'}</td>`).join('')}</tr>`;
   };
   const tot = data.reduce((a: any, d: any) => {
-    const c = d.calc; a.sueldo += c.asistMonto + c.septimo; a.prest += c.prestDesc; a.com += c.comedor; a.dp += c.descuentoProducto; a.inf += c.infonavit; a.fr += c.retardoMonto; a.bono += c.bono; a.retro += c.retroactivoTotal; a.extra += (c.te || 0) + (c.incentivos || 0); a.neto += c.neto; a.banco += c.depositoBanco; a.efvo += c.efectivo; return a;
-  }, { sueldo: 0, prest: 0, com: 0, dp: 0, inf: 0, fr: 0, bono: 0, retro: 0, extra: 0, neto: 0, banco: 0, efvo: 0 });
-  const totVals = [tot.sueldo, tot.prest, tot.com, tot.dp, tot.inf, tot.fr, tot.bono, tot.retro, tot.extra, tot.neto, tot.banco, tot.efvo];
-  const heads = ['Sueldo', 'Préstamo', 'Comedor', 'Desc. Prod.', 'Infonavit', 'Falta/Ret.', 'Bono', 'Retro.', 'Extra', 'Neto', 'Dep. Banco', 'Efectivo'];
+    const c = d.calc; a.sueldo += c.asistMonto + c.septimo; a.prest += c.prestDesc; a.com += c.comedor; a.dp += c.descuentoProducto; a.inf += c.infonavit; a.fr += c.retardoMonto; a.bono += c.bono; a.retro += c.retroactivoTotal; a.he += (c.te || 0); a.viajes += (c.incentivos || 0); a.neto += c.neto; a.banco += c.depositoCorregido; a.efvo += c.efectivo; return a;
+  }, { sueldo: 0, prest: 0, com: 0, dp: 0, inf: 0, fr: 0, bono: 0, retro: 0, he: 0, viajes: 0, neto: 0, banco: 0, efvo: 0 });
+  const totVals = [tot.sueldo, tot.prest, tot.com, tot.dp, tot.inf, tot.fr, tot.bono, tot.retro, tot.he, tot.viajes, tot.neto, tot.banco, tot.efvo];
+  const heads = ['Sueldo', 'Préstamo', 'Comedor', 'Desc. Prod.', 'Infonavit', 'Falta/Ret.', 'Bono', 'Retro.', 'Horas Extra', 'Viajes', 'Neto', 'Dep. Banco', 'Efectivo'];
   return `<table>
     <thead><tr><th class="c">ID Banco</th><th>Empleado</th>${heads.map((h) => `<th class="r">${esc(h)}</th>`).join('')}</tr></thead>
     <tbody>${data.map(fila).join('')}</tbody>
     <tfoot><tr><td colspan="2">Totales (${data.length})</td>${totVals.map((v) => `<td class="r mono">${m(v)}</td>`).join('')}</tr></tfoot>
   </table>
-  <p class="muted" style="font-size:10px;margin-top:8px">Sueldo = asistencia + séptimo · Extra = horas extra + incentivos de viajes · Falta/Ret. = descuento por retardos (las faltas ya están reflejadas en el sueldo).</p>`;
+  <p class="muted" style="font-size:10px;margin-top:8px">Sueldo = asistencia + séptimo · Horas Extra y Viajes (incentivos) van separados · Falta/Ret. = descuento por retardos (las faltas ya están reflejadas en el sueldo) · <strong>Dep. Banco = depósito a banco + toka (vales)</strong>, igual al depósito fiscal/corregido.</p>`;
 }
 
 // ───────────────────────── orquestador de impresión ─────────────────────────
