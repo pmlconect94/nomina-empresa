@@ -69,7 +69,12 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, viajeD
     try {
       if (ex?.id) await supabase.from('asistencias').update({ [campo]: valor }).eq('id', ex.id);
       else {
-        const { data } = await supabase.from('asistencias').insert({ nomina_id: nomId, dia_index: i, fecha, codigo: campo === 'codigo' ? valor : '', te_horas: campo === 'te_horas' ? valor : 0, te_motivo: campo === 'te_motivo' ? valor : '', retardo_min: campo === 'retardo_min' ? valor : 0 }).select().single();
+        // upsert por (nomina_id, dia_index): si ya existe la fila del día la actualiza,
+        // si no, la crea. Evita filas duplicadas para el mismo día. Manda la celda completa.
+        const { data } = await supabase.from('asistencias').upsert({
+          nomina_id: nomId, dia_index: i, fecha,
+          codigo: upd.codigo || '', te_horas: upd.te_horas || 0, te_motivo: upd.te_motivo || '', retardo_min: upd.retardo_min || 0,
+        }, { onConflict: 'nomina_id,dia_index' }).select().single();
         if (data) { setLocal((p) => ({ ...p, [key]: { ...p[key], id: data.id } })); const j = asistencias[nomId].findIndex((a: any) => a.dia_index === i); if (j >= 0) asistencias[nomId][j].id = data.id; }
       }
     } catch (err) { console.error(err); }
