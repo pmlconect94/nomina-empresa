@@ -222,10 +222,14 @@ function bodyDispersion(calcData: any[], semana: any): string {
 }
 
 // ───────────────────────── REPORTE FISCAL ─────────────────────────
-// ID NOMEX · Nombre · Vales · Dep. Banco (solo banco, toka va en Vales) · Asistencias · Séptimo día.
+// ID NOMEX · Nombre · Vales · Dep. Banco (solo banco) · Asistencia y Séptimo día EN DÍAS (número) ·
+// Infonavit · Comedor · Retardos · Préstamo · Desc. Producto (en dinero).
 function bodyFiscal(calcData: any[], semana: any): string {
   void semana;
   const data = [...calcData].sort((a, b) => (a.empleado.id_nomex ?? 9e9) - (b.empleado.id_nomex ?? 9e9));
+  // Número de días (entero si es redondo, si no 2 decimales). 0 → "—".
+  const nd = (n: number) => { const r = Math.round(n * 100) / 100; return r === 0 ? '—' : (Number.isInteger(r) ? String(r) : r.toFixed(2)); };
+  const septDias = (c: any) => (c.dDR > 0 ? c.septimo / c.dDR : 0); // días de séptimo = monto / sueldo diario
   const fila = (d: any) => {
     const e = d.empleado, c = d.calc;
     return `<tr>
@@ -233,18 +237,28 @@ function bodyFiscal(calcData: any[], semana: any): string {
       <td>${esc(e.nombre)}</td>
       <td class="r mono">${c.vales ? m(c.vales) : '—'}</td>
       <td class="r mono">${c.depositoBanco ? m(c.depositoBanco) : '—'}</td>
-      <td class="r mono">${c.asistMonto ? m(c.asistMonto) : '—'}</td>
-      <td class="r mono">${c.septimo ? m(c.septimo) : '—'}</td>
+      <td class="r mono">${nd(c.diasA || 0)}</td>
+      <td class="r mono">${nd(septDias(c))}</td>
+      <td class="r mono">${c.infonavit ? m(c.infonavit) : '—'}</td>
+      <td class="r mono">${c.comedor ? m(c.comedor) : '—'}</td>
+      <td class="r mono">${c.retardoMonto ? m(c.retardoMonto) : '—'}</td>
+      <td class="r mono">${c.prestDesc ? m(c.prestDesc) : '—'}</td>
+      <td class="r mono">${c.descuentoProducto ? m(c.descuentoProducto) : '—'}</td>
     </tr>`;
   };
   const tot = data.reduce((a: any, d: any) => {
-    const c = d.calc; a.vales += c.vales || 0; a.banco += c.depositoBanco || 0; a.asist += c.asistMonto || 0; a.sept += c.septimo || 0; return a;
-  }, { vales: 0, banco: 0, asist: 0, sept: 0 });
+    const c = d.calc;
+    a.vales += c.vales || 0; a.banco += c.depositoBanco || 0;
+    a.asis += c.diasA || 0; a.sept += septDias(c);
+    a.inf += c.infonavit || 0; a.com += c.comedor || 0; a.ret += c.retardoMonto || 0; a.prest += c.prestDesc || 0; a.dp += c.descuentoProducto || 0;
+    return a;
+  }, { vales: 0, banco: 0, asis: 0, sept: 0, inf: 0, com: 0, ret: 0, prest: 0, dp: 0 });
   return `<table>
-    <thead><tr><th>ID NOMEX</th><th>Nombre</th><th class="r">Vales</th><th class="r">Dep. Banco</th><th class="r">Asistencias</th><th class="r">Séptimo día</th></tr></thead>
+    <thead><tr><th>ID NOMEX</th><th>Nombre</th><th class="r">Vales</th><th class="r">Dep. Banco</th><th class="r">Asistencia</th><th class="r">Séptimo día</th><th class="r">Infonavit</th><th class="r">Comedor</th><th class="r">Retardos</th><th class="r">Préstamo</th><th class="r">Desc. Producto</th></tr></thead>
     <tbody>${data.map(fila).join('')}</tbody>
-    <tfoot><tr><td colspan="2">Totales (${data.length})</td><td class="r mono">${m(tot.vales)}</td><td class="r mono">${m(tot.banco)}</td><td class="r mono">${m(tot.asist)}</td><td class="r mono">${m(tot.sept)}</td></tr></tfoot>
-  </table>`;
+    <tfoot><tr><td colspan="2">Totales (${data.length})</td><td class="r mono">${m(tot.vales)}</td><td class="r mono">${m(tot.banco)}</td><td class="r mono">${nd(tot.asis)}</td><td class="r mono">${nd(tot.sept)}</td><td class="r mono">${m(tot.inf)}</td><td class="r mono">${m(tot.com)}</td><td class="r mono">${m(tot.ret)}</td><td class="r mono">${m(tot.prest)}</td><td class="r mono">${m(tot.dp)}</td></tr></tfoot>
+  </table>
+  <p class="muted" style="font-size:10px;margin-top:8px"><strong>Asistencia y Séptimo día van en número de días</strong> (no en dinero): semana completa = 6 y 1. Dep. Banco = solo banco (los vales/toka van en su columna).</p>`;
 }
 
 // ───────────────────────── orquestador de impresión ─────────────────────────
@@ -262,7 +276,7 @@ export async function imprimirNomina(tipo: TipoImpresion, calcData: any[], seman
     } else if (tipo === 'dispersion') {
       render(w, { titulo: 'Dispersión de nómina', periodo, tipoSemana, body: bodyDispersion(calcData, semana), landscape: true, firmas: true });
     } else if (tipo === 'fiscal') {
-      render(w, { titulo: 'Reporte fiscal', periodo, tipoSemana, body: bodyFiscal(calcData, semana), landscape: false, firmas: true });
+      render(w, { titulo: 'Reporte fiscal', periodo, tipoSemana, body: bodyFiscal(calcData, semana), landscape: true, firmas: true });
     }
   } catch (e) {
     w.document.open(); w.document.write('<body style="font-family:sans-serif;padding:40px">Error al generar el documento. Revisa la consola.</body>'); w.document.close();
