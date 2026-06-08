@@ -117,6 +117,7 @@ export function TabResumen({ calcData, semana }: { calcData: any[]; semana: any 
     { label: '🖨  Incidencias', run: () => imprimirNomina('incidencias', calcData, semana) },
     { label: '🖨  Viajes y horas extra', run: () => imprimirNomina('viajeshe', calcData, semana) },
     { label: '🖨  Dispersión', run: () => imprimirNomina('dispersion', calcData, semana) },
+    { label: '🖨  Reporte fiscal', run: () => imprimirNomina('fiscal', calcData, semana) },
     { label: '⬇  Vales — Excel (.xlsx)', run: () => exportarValesXLSX(calcData, semana) },
     { label: '⬇  Depósito a banco — Excel (.xlsx)', run: () => exportarDispersionBancoXLSX(calcData, semana) },
   ];

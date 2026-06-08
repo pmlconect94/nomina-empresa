@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { fmt, fmtPeriodo, fmtFecha } from '@/lib/format';
+import { fmt, fmtPeriodo, fmtFecha, nomexLabel } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 
 // Genera y descarga un .xlsx a partir de una matriz [filas][columnas].
@@ -11,7 +11,7 @@ function descargarXLSX(aoa: (string | number)[][], sheetName: string, filename: 
 }
 
 // Formatos de impresión / exportación de la nómina.
-export type TipoImpresion = 'incidencias' | 'viajeshe' | 'dispersion';
+export type TipoImpresion = 'incidencias' | 'viajeshe' | 'dispersion' | 'fiscal';
 
 const EMPRESA = 'Productos Marinos Lizárraga';
 const VALES_ID_CUENTA = '26260';      // cuenta de vales de la empresa (constante)
@@ -221,6 +221,32 @@ function bodyDispersion(calcData: any[], semana: any): string {
   <p class="muted" style="font-size:10px;margin-top:8px">Sueldo = asistencia + séptimo · Horas Extra y Viajes (incentivos) van separados · Falta/Ret. = descuento por retardos (las faltas ya están reflejadas en el sueldo) · <strong>Dep. Banco = depósito a banco + toka (vales)</strong>, igual al depósito fiscal/corregido.</p>`;
 }
 
+// ───────────────────────── REPORTE FISCAL ─────────────────────────
+// ID NOMEX · Nombre · Vales · Dep. Banco (solo banco, toka va en Vales) · Asistencias · Séptimo día.
+function bodyFiscal(calcData: any[], semana: any): string {
+  void semana;
+  const data = [...calcData].sort((a, b) => (a.empleado.id_nomex ?? 9e9) - (b.empleado.id_nomex ?? 9e9));
+  const fila = (d: any) => {
+    const e = d.empleado, c = d.calc;
+    return `<tr>
+      <td class="mono">${esc(nomexLabel(e))}</td>
+      <td>${esc(e.nombre)}</td>
+      <td class="r mono">${c.vales ? m(c.vales) : '—'}</td>
+      <td class="r mono">${c.depositoBanco ? m(c.depositoBanco) : '—'}</td>
+      <td class="r mono">${c.asistMonto ? m(c.asistMonto) : '—'}</td>
+      <td class="r mono">${c.septimo ? m(c.septimo) : '—'}</td>
+    </tr>`;
+  };
+  const tot = data.reduce((a: any, d: any) => {
+    const c = d.calc; a.vales += c.vales || 0; a.banco += c.depositoBanco || 0; a.asist += c.asistMonto || 0; a.sept += c.septimo || 0; return a;
+  }, { vales: 0, banco: 0, asist: 0, sept: 0 });
+  return `<table>
+    <thead><tr><th>ID NOMEX</th><th>Nombre</th><th class="r">Vales</th><th class="r">Dep. Banco</th><th class="r">Asistencias</th><th class="r">Séptimo día</th></tr></thead>
+    <tbody>${data.map(fila).join('')}</tbody>
+    <tfoot><tr><td colspan="2">Totales (${data.length})</td><td class="r mono">${m(tot.vales)}</td><td class="r mono">${m(tot.banco)}</td><td class="r mono">${m(tot.asist)}</td><td class="r mono">${m(tot.sept)}</td></tr></tfoot>
+  </table>`;
+}
+
 // ───────────────────────── orquestador de impresión ─────────────────────────
 export async function imprimirNomina(tipo: TipoImpresion, calcData: any[], semana: any) {
   const w = abrirVentana();
@@ -235,6 +261,8 @@ export async function imprimirNomina(tipo: TipoImpresion, calcData: any[], seman
       render(w, { titulo: 'Viajes y horas extra', periodo, tipoSemana, body, landscape: false });
     } else if (tipo === 'dispersion') {
       render(w, { titulo: 'Dispersión de nómina', periodo, tipoSemana, body: bodyDispersion(calcData, semana), landscape: true, firmas: true });
+    } else if (tipo === 'fiscal') {
+      render(w, { titulo: 'Reporte fiscal', periodo, tipoSemana, body: bodyFiscal(calcData, semana), landscape: false, firmas: true });
     }
   } catch (e) {
     w.document.open(); w.document.write('<body style="font-family:sans-serif;padding:40px">Error al generar el documento. Revisa la consola.</body>'); w.document.close();
