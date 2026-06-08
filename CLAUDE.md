@@ -201,7 +201,9 @@ semana). `viajes` tiene `retroactivo` (bool). **Vista** `v_incidencias` (KPIs: d
   Logística/Almacén. **Viaje retroactivo** (fecha ≤7 días antes del periodo) cuenta en Retroactivo.
 - **Retroactivos:** viajes retro + **HE retro** (pestaña "HE retro": horas + propósito + día de la
   semana anterior) → suman a la columna/total **Retroactivo**.
-- **Comedor:** $30 por día; semana 5 días, **quincena 10 días** (el 11º pasa a la otra quincena).
+- **Comedor:** $30 por día. **Semanal:** corre **viernes→jueves** (del viernes anterior al lunes
+  hasta el jueves), 5 días — porque la nómina cierra el viernes y ese día aún no se sabe el comedor,
+  así que pasa a la siguiente. **Quincenal:** días hábiles del periodo (1–15 / 16–fin), máx 10.
 - **Préstamos:** descuento **10% del monto** (semanal **y** quincenal); primer descuento **una semana
   después** de la fecha del préstamo. **Abonos fuera de nómina** reducen el saldo (el % de descuento
   no cambia). Al timbrar se descuenta del saldo y se guarda historial en `prestamo_descuentos`

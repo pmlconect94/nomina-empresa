@@ -10,18 +10,30 @@ export function TabComedor({ semana, nominas, empleados, canEdit }: any) {
   const [marcados, setMarcados] = useState<Set<string>>(new Set()); // "nomId|fecha"
   const [loading, setLoading] = useState(true);
 
-  // Días hábiles (lunes a viernes) del periodo.
+  // Días hábiles (lunes a viernes) del comedor.
   function diasHabiles() {
     const out: Date[] = [];
     const ini = new Date(semana.fecha_inicio + 'T12:00:00');
-    const fin = new Date(semana.fecha_fin + 'T12:00:00');
-    for (let d = new Date(ini); d <= fin; d.setDate(d.getDate() + 1)) {
+
+    if (semana.tipo === 'quincenal') {
+      // Quincena: días hábiles del periodo (1–15 o 16–fin), máx 10. El 11º pasa a la otra quincena.
+      const fin = new Date(semana.fecha_fin + 'T12:00:00');
+      for (let d = new Date(ini); d <= fin; d.setDate(d.getDate() + 1)) {
+        const dow = d.getDay();
+        if (dow >= 1 && dow <= 5) out.push(new Date(d));
+      }
+      return out.slice(0, 10);
+    }
+
+    // Semanal: la nómina cierra el VIERNES, así que ese día aún no se sabe el comedor → pasa a la
+    // siguiente nómina. El comedor corre del VIERNES anterior al lunes hasta el JUEVES de la semana
+    // (p.ej. nómina lun 1–dom 7 → comedor vie 29, lun 1, mar 2, mié 3, jue 4 = 5 días).
+    const start = new Date(ini); start.setDate(ini.getDate() - 3); // viernes anterior al lunes
+    const end = new Date(ini); end.setDate(ini.getDate() + 3);     // jueves de la semana
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dow = d.getDay();
       if (dow >= 1 && dow <= 5) out.push(new Date(d));
     }
-    // Quincena: el comedor es de 10 días. Cuando caen 11 hábiles (p.ej. el 15),
-    // el día sobrante no cuenta para esta quincena (pasa a la siguiente).
-    if (semana.tipo === 'quincenal') return out.slice(0, 10);
     return out;
   }
   const dias = diasHabiles();
