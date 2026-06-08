@@ -610,4 +610,28 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
   con viaje y horas extra"**: cruza viajes (chofer/acompañante) con HE de `asistencias` por
   empleado+fecha (nombre, fecha, rol, destino·llegada, horas, motivo) para tenerlo mapeado.
 
+### 2026-06-08 — Viajes (tabulador), exports .xlsx, comedor vie→jue, reporte fiscal, fix dup asistencias
+- **Viajes — tabulador de 4 tramos** por hora de llegada: 7am-3pm 200/100 · 3pm-7pm 400/200 ·
+  7pm-11pm 500/300 · **11pm-7am 600/400**. **"Se quedó a dormir"** = **último tabular + $100**
+  (700/500) **+ el tabular de la hora de llegada del día siguiente** (ej. llega 8pm → 700/500 +
+  500/300 = 1200/800). `DORMIR_EXTRA = 100` en `calc.ts`. (Antes hubo un tramo 1am-7am que se quitó.)
+- **Exports a `.xlsx` reales** (dependencia **SheetJS `xlsx`** instalada desde el CDN 0.20.3):
+  **Vales** (`ID·NOMINA·MONTO·PRODUCTO`) y nuevo **Depósito a banco** (`ID BANCO·NOMBRE·DEPOSITO`,
+  solo quienes depositan >0). Antes eran CSV. Funciones `exportarValesXLSX` /
+  `exportarDispersionBancoXLSX` en `printNomina.ts`.
+- **Impresión Dispersión:** la columna **"Extra" se separó** en **Horas Extra** (`c.te`) y **Viajes**
+  (`c.incentivos`); la columna **Dep. Banco** ahora muestra **banco + toka** (`depositoCorregido`),
+  no solo el banco.
+- **Comedor semanal → ventana viernes→jueves:** como la nómina cierra el **viernes** y ese día aún
+  no se sabe el comedor, ese viernes pasa a la siguiente nómina y entra el **viernes anterior**
+  (5 días: vie, lun, mar, mié, jue). **Quincenal sin cambios** (1–15 / 16–fin, máx 10).
+- **Fix — asistencias duplicadas:** se encontró un caso (empleado agregado tarde + captura rápida)
+  con **dos filas para el mismo día** → el cálculo contaba un día de más. Solución: **restricción
+  única `asistencias (nomina_id, dia_index)`** + la captura ahora usa **upsert** (no insert), así no
+  se duplica aunque el estado local no tenga el `id`.
+- **Nuevo "Reporte fiscal"** (impresión, horizontal con firmas y totales, orden por ID NOMEX):
+  **ID NOMEX · Nombre · Vales · Dep. Banco** (solo banco) **· Asistencia · Séptimo día** (estas dos
+  **EN NÚMERO de días**, no dinero: semana completa = 6 y 1; séptimo días = `septimo/dDR`) **·
+  Infonavit · Comedor · Retardos · Préstamo · Desc. Producto** (en dinero).
+
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->
