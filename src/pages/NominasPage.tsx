@@ -42,12 +42,22 @@ export function NominasPage() {
     if (!tipo || !ini || !fin) return;
     setSaving(true);
     const esquema = tipo === 'semanal' ? 'Semanal' : 'Quincenal';
+
+    // Nómina ANTERIOR del mismo esquema (la más reciente antes de esta fecha) → para copiar ISR/IMSS.
+    const { data: prevSem } = await supabase.from('semanas').select('id').eq('tipo', tipo).lt('fecha_inicio', ini).order('fecha_inicio', { ascending: false }).limit(1).maybeSingle();
+    const fiscalPrev: Record<string, { isr: number; imss: number }> = {};
+    if (prevSem) {
+      const { data: prevNoms } = await supabase.from('nominas').select('empleado_id, isr, imss').eq('semana_id', prevSem.id);
+      (prevNoms || []).forEach((n: any) => { fiscalPrev[n.empleado_id] = { isr: n.isr || 0, imss: n.imss || 0 }; });
+    }
+
     const { data: semana, error } = await supabase.from('semanas').insert({ fecha_inicio: ini, fecha_fin: fin, tipo, status: 'abierta' }).select().single();
     if (error) { toast.error(error.message); setSaving(false); return; }
-    // Solo los empleados activos de ESE esquema (semanal o quincenal).
+    // Solo los empleados activos de ESE esquema (semanal o quincenal). Se copia el ISR/IMSS de la nómina anterior.
     const { data: emps } = await supabase.from('empleados').select('id').eq('activo', true).eq('esquema_pago', esquema);
-    if (emps?.length) await supabase.from('nominas').insert(emps.map((e: any) => ({ semana_id: semana.id, empleado_id: e.id })));
-    toast.success(`Nómina creada con ${emps?.length || 0} empleados ${esquema.toLowerCase()}s`);
+    if (emps?.length) await supabase.from('nominas').insert(emps.map((e: any) => ({ semana_id: semana.id, empleado_id: e.id, isr: fiscalPrev[e.id]?.isr || 0, imss: fiscalPrev[e.id]?.imss || 0 })));
+    const copiados = Object.keys(fiscalPrev).length;
+    toast.success(`Nómina creada con ${emps?.length || 0} empleados ${esquema.toLowerCase()}s${copiados ? ' · ISR/IMSS copiado de la anterior' : ''}`);
     setModal(false); setTipo(null); setIni(''); setFin(''); setSaving(false); fetch();
   }
 
