@@ -227,14 +227,17 @@ semana). `viajes` tiene `retroactivo` (bool). **Vista** `v_incidencias` (KPIs: d
 
 ---
 
-## Estado actual (2026-06-02)
+## Estado actual (2026-06-08)
 
 - ✅ En producción (https://nomina-empresa.vercel.app). BD en Supabase `crm-pml`, schema `nomina`.
+  Último commit en `main`: **`80c6b41`** (copia ISR/IMSS de la nómina anterior).
 - ✅ **32 empleados cargados** con sueldos (real/fiscal por periodo), vales, previsión, SDI e IDs
-  (Toka/Banco/NOMEX) — alta masiva desde `EMPLEADOS_SUELDOS.xlsx`.
-- ✅ 3 préstamos a medias dados de alta (María Isabel, Joselyn, Claudia) con fecha 2026-05-01 para
-  que descuenten en la nómina del **25–31 may**.
-- 🔜 **Se estaba armando la nómina semanal del 25–31 may** con los cambios recientes de cálculo.
+  (Toka/Banco/NOMEX). Además hay empleados agregados después (p.ej. Angel Gabriel Cuevas).
+- ✅ 3 préstamos a medias dados de alta (María Isabel, Joselyn, Claudia).
+- ✅ **Cálculo, viajes, comedor, impresiones y exports** ya con todos los ajustes recientes
+  (ver bitácora 2026-06-08). El sistema ya se usa para armar nóminas reales.
+- 🔜 Siguientes pasos: validar montos con contabilidad, **Dashboard KPIs (F5)** sobre la vista
+  `v_incidencias`, y **F4 Vacaciones**.
 
 ## 🧭 Para la próxima sesión de Claude Code (LEER)
 
@@ -633,5 +636,9 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
   **ID NOMEX · Nombre · Vales · Dep. Banco** (solo banco) **· Asistencia · Séptimo día** (estas dos
   **EN NÚMERO de días**, no dinero: semana completa = 6 y 1; séptimo días = `septimo/dDR`) **·
   Infonavit · Comedor · Retardos · Préstamo · Desc. Producto** (en dinero).
+- **Nómina nueva copia ISR/IMSS de la anterior:** al crear una nómina, cada empleado hereda el
+  **ISR e IMSS** de su nómina previa del **mismo esquema** (la más reciente antes de esa fecha);
+  después se ajustan en la pestaña **Fiscal**. Si no hay anterior, nacen en 0. (`NominasPage.crear`.)
+  Nota: si un empleado se agrega TARDE a una nómina ya creada, ese caso aún nace en 0.
 
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->
