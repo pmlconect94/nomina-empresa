@@ -641,4 +641,29 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
   después se ajustan en la pestaña **Fiscal**. Si no hay anterior, nacen en 0. (`NominasPage.crear`.)
   Nota: si un empleado se agrega TARDE a una nómina ya creada, ese caso aún nace en 0.
 
+### 2026-06-09 — Ficha del banco del empleado + dispersión Banorte (.pag)
+- **Ficha del banco** (`EmpleadosPage`): nuevas columnas en `nomina.empleados` (todas **texto**, para
+  conservar ceros a la izquierda): `banco_nombre`, `banco_receptor`, `banco_tipo_cuenta`, `banco_cuenta`
+  (el `id_banco` ya existía). En la tarjeta **Ver** hay un botón **🔒 Ficha del banco** protegido con
+  la **contraseña del usuario** (mismo candado `reauth` que Sueldo) que abre un modal para capturar:
+  - **Nombre empleado banco**: se normaliza solo a MAYÚSCULAS sin acentos (ñ→n vía NFD).
+  - **No. banco receptor**: 3 dígitos, se rellenan ceros a la izquierda al guardar (72 → 072).
+  - **Tipo de cuenta**: lista `01 / 03 / 40`.
+  - **Cuenta**: solo dígitos, conserva ceros a la izquierda.
+- **Carga masiva**: se cargaron los datos bancarios de los **32 empleados** desde `Empleados_PML.xlsx`
+  (emparejando por **ID Banco**) directo a la BD. Bancos no-072 detectados: Banamex `014/03`,
+  HSBC/otros `021/03`, BBVA `127/40`.
+- **Export Dispersión Banorte (`.pag`)** (`printNomina.ts` → `exportarBanortePag`, opción en el menú
+  Imprimir/Exportar del Resumen): genera el archivo de ancho fijo (165 chars/línea) del **Convertidor
+  de pago de nómina de Banorte**, idéntico al que produce ese programa (validado byte por byte).
+  - **Header**: `HNE` + emisora(5) + fecha AAAAMMDD(8) + consecutivo(2) + nº registros(6) + importe
+    total en centavos(15) + ceros(61) + cuenta de cargo(10) + ceros(55).
+  - **Detalle** (por empleado con `depositoBanco`>0 y ficha del banco completa): `D` + fecha(8) +
+    nº empleado = **ID Banco**(10) + nombre en blanco(80) + importe centavos(15) + receptor(3) +
+    tipo cuenta(2) + cuenta(18) + `0` + ` ` + `00000000` + espacios(18).
+  - **Importe** = `depositoBanco` (solo banco; los vales van por Toka). Constantes de la empresa:
+    **emisora `21659`**, **cuenta cargo `0265911011`**. Pide **fecha de aplicación** y **consecutivo**
+    al exportar. Nombre del archivo: `NI<emisora><consecutivo>.pag` (ej. `NI2165901.pag`). Excluye y
+    avisa de quienes tienen depósito pero ficha del banco incompleta. CRLF, ASCII, sin BOM.
+
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->

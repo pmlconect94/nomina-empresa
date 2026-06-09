@@ -13,6 +13,12 @@ const SEXOS = ['Masculino', 'Femenino'];
 const ESTADO_CIVIL = ['Soltero', 'Soltera', 'Casado', 'Casada', 'Union libre', 'Viudo', 'Viuda', 'Divorciado', 'Divorciada'];
 const ESCOLARIDAD = ['Primaria', 'Secundaria', 'Preparatoria', 'Licenciatura', 'Maestría', 'Universidad', 'Doctorado'];
 const TURNOS = [1, 2, 3];
+const TIPOS_CUENTA = ['01', '03', '40'];
+
+// Normaliza para el banco: MAYÚSCULAS y sin acentos (la ñ → n vía NFD).
+function normBanco(s: string): string {
+  return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+}
 
 function Campo({ label, value }: { label: string; value: any }) {
   return (
@@ -36,6 +42,9 @@ export function EmpleadosPage() {
   const [saving, setSaving] = useState(false);
   const [verEmp, setVerEmp] = useState<any>(null);          // tarjeta de detalle
   const [sueldoEmp, setSueldoEmp] = useState<any>(null);    // pantalla SUELDO
+  const [bancoEmp, setBancoEmp] = useState<any>(null);      // ficha del banco (protegida)
+  const [bancoForm, setBancoForm] = useState<any>({});
+  const [bancoSaving, setBancoSaving] = useState(false);
 
   // Candado de contraseña genérico { emp, action: 'sueldo' | 'imss-off' }
   const [gate, setGate] = useState<any>(null);
@@ -110,6 +119,36 @@ export function EmpleadosPage() {
     const g = gate; setGate(null); setGatePass('');
     if (g.action === 'sueldo') setSueldoEmp(g.emp);
     else if (g.action === 'imss-off') setImss(g.emp, false);
+    else if (g.action === 'banco') abrirBanco(g.emp);
+  }
+
+  function abrirBanco(emp: any) {
+    setBancoForm({
+      id_banco: emp.id_banco ?? '',
+      banco_nombre: emp.banco_nombre || normBanco(emp.nombre || ''),
+      banco_receptor: emp.banco_receptor || '',
+      banco_tipo_cuenta: emp.banco_tipo_cuenta || '01',
+      banco_cuenta: emp.banco_cuenta || '',
+    });
+    setBancoEmp(emp);
+  }
+
+  async function guardarBanco() {
+    setBancoSaving(true);
+    const receptor = bancoForm.banco_receptor ? String(bancoForm.banco_receptor).replace(/\D/g, '').padStart(3, '0') : null;
+    const data: any = {
+      id_banco: bancoForm.id_banco === '' || bancoForm.id_banco == null ? null : Number(bancoForm.id_banco),
+      banco_nombre: bancoForm.banco_nombre?.trim() || null,
+      banco_receptor: receptor,
+      banco_tipo_cuenta: bancoForm.banco_tipo_cuenta || null,
+      banco_cuenta: bancoForm.banco_cuenta?.trim() || null,
+    };
+    const { error } = await supabase.from('empleados').update(data).eq('id', bancoEmp.id);
+    setBancoSaving(false);
+    if (error) { toast.error('Error: ' + error.message); return; }
+    toast.success('Ficha del banco guardada');
+    setVerEmp((v: any) => (v && v.id === bancoEmp.id ? { ...v, ...data } : v));
+    setBancoEmp(null); fetchEmpleados();
   }
 
   const f = (k: string, v: any) => setForm((p: any) => ({ ...p, [k]: v }));
@@ -186,6 +225,7 @@ export function EmpleadosPage() {
                 <div className="text-xs muted">{verEmp.puesto || '—'} · {verEmp.area || '—'} · {verEmp.activo ? 'Activo' : 'Baja'}</div>
               </div>
               <div className="hstack" style={{ gap: 6 }}>
+                {canSueldo && <button className="btn btn-outline btn-sm" onClick={() => { setGate({ emp: verEmp, action: 'banco' }); setGatePass(''); }} title="Ficha del banco (protegida)"><Icon name="lock" size={13} /> Ficha del banco</button>}
                 {canEdit && <button className="btn btn-primary btn-sm" onClick={() => abrirEdicion(verEmp)}><Icon name="edit" size={13} /> Editar</button>}
                 <button className="btn btn-ghost btn-sm" onClick={() => setVerEmp(null)}><Icon name="x" size={16} /></button>
               </div>
@@ -301,13 +341,15 @@ export function EmpleadosPage() {
         <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && setGate(null)}>
           <div className="modal page-enter" style={{ maxWidth: 400 }}>
             <div className="modal-header">
-              <h3 className="modal-title"><Icon name="lock" size={15} /> {gate.action === 'sueldo' ? 'Acceso a sueldos' : 'Quitar Alta IMSS'}</h3>
+              <h3 className="modal-title"><Icon name="lock" size={15} /> {gate.action === 'sueldo' ? 'Acceso a sueldos' : gate.action === 'banco' ? 'Ficha del banco' : 'Quitar Alta IMSS'}</h3>
               <button className="btn btn-ghost btn-sm" onClick={() => setGate(null)}><Icon name="x" size={16} /></button>
             </div>
             <div className="modal-body">
               <p className="muted text-sm" style={{ marginTop: 0 }}>
                 {gate.action === 'sueldo'
                   ? <>Confirma tu contraseña para ver/editar el sueldo de <strong>{gate.emp.nombre}</strong>.</>
+                  : gate.action === 'banco'
+                  ? <>Confirma tu contraseña para ver/editar la <strong>ficha del banco</strong> de <strong>{gate.emp.nombre}</strong>.</>
                   : <>Quitar la Alta IMSS de <strong>{gate.emp.nombre}</strong> requiere autorización. Confirma tu contraseña.</>}
               </p>
               <input type="text" name="usuario_ro" value={user?.email || ''} readOnly autoComplete="username" tabIndex={-1} style={{ position: 'absolute', left: '-9999px' }} />
@@ -317,6 +359,58 @@ export function EmpleadosPage() {
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setGate(null)}>Cancelar</button>
               <button className="btn btn-primary" onClick={confirmarGate} disabled={gateBusy || !gatePass}>{gateBusy ? 'Verificando…' : 'Confirmar'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ficha del banco (protegida) */}
+      {bancoEmp && (
+        <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && setBancoEmp(null)}>
+          <div className="modal page-enter" style={{ maxWidth: 560 }}>
+            <div className="modal-header">
+              <div>
+                <h3 className="modal-title"><Icon name="lock" size={15} /> Ficha del banco</h3>
+                <div className="text-xs muted">{bancoEmp.nombre}</div>
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={() => setBancoEmp(null)}><Icon name="x" size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="form-grid form-grid-2">
+                <div>
+                  <label className="field-label">ID Banco</label>
+                  <input className="field-input mono" type="number" value={bancoForm.id_banco ?? ''} onChange={(e) => setBancoForm((p: any) => ({ ...p, id_banco: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="field-label">Tipo de cuenta</label>
+                  <select className="field-input mono" value={bancoForm.banco_tipo_cuenta || '01'} onChange={(e) => setBancoForm((p: any) => ({ ...p, banco_tipo_cuenta: e.target.value }))}>
+                    {TIPOS_CUENTA.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="form-grid" style={{ marginTop: 10 }}>
+                <div>
+                  <label className="field-label">Nombre empleado banco</label>
+                  <input className="field-input mono" value={bancoForm.banco_nombre || ''} placeholder="MAYÚSCULAS SIN ACENTOS" onChange={(e) => setBancoForm((p: any) => ({ ...p, banco_nombre: normBanco(e.target.value) }))} />
+                  <div className="text-xs muted" style={{ marginTop: 3 }}>Mayúsculas, sin acentos; la ñ se reemplaza por n. <button type="button" className="link" onClick={() => setBancoForm((p: any) => ({ ...p, banco_nombre: normBanco(bancoEmp.nombre || '') }))} style={{ color: 'var(--blue-500)', cursor: 'pointer', background: 'none', padding: 0 }}>Usar nombre del empleado</button></div>
+                </div>
+              </div>
+              <div className="form-grid form-grid-2" style={{ marginTop: 10 }}>
+                <div>
+                  <label className="field-label">No. banco receptor</label>
+                  <input className="field-input mono" inputMode="numeric" maxLength={3} value={bancoForm.banco_receptor || ''} placeholder="072" onChange={(e) => setBancoForm((p: any) => ({ ...p, banco_receptor: e.target.value.replace(/\D/g, '').slice(0, 3) }))} />
+                  <div className="text-xs muted" style={{ marginTop: 3 }}>3 dígitos; se completan ceros a la izquierda al guardar (ej. 72 → 072).</div>
+                </div>
+                <div>
+                  <label className="field-label">Cuenta</label>
+                  <input className="field-input mono" inputMode="numeric" value={bancoForm.banco_cuenta || ''} placeholder="0286878043" onChange={(e) => setBancoForm((p: any) => ({ ...p, banco_cuenta: e.target.value.replace(/\D/g, '') }))} />
+                  <div className="text-xs muted" style={{ marginTop: 3 }}>Conserva los ceros a la izquierda.</div>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setBancoEmp(null)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={guardarBanco} disabled={bancoSaving}>{bancoSaving ? 'Guardando…' : 'Guardar ficha'}</button>
             </div>
           </div>
         </div>

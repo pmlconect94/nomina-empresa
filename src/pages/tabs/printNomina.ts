@@ -325,3 +325,68 @@ export function exportarDispersionBancoXLSX(calcData: any[], semana: any) {
     alert(`Se exportaron ${data.length} empleados con depósito a banco.\n\n${sinBanco.length} tienen depósito pero NO tienen ID Banco (salen con ID vacío):\n` + sinBanco.map((d) => `· ${d.empleado.nombre}`).join('\n'));
   }
 }
+
+// ───────────────────────── EXPORT BANORTE (.pag) ─────────────────────────
+// Archivo de dispersión de pago de nómina de Banorte (ancho fijo, 165 chars por línea).
+// Header:  HNE + emisora(5) + fecha AAAAMMDD(8) + consecutivo(2) + nºregs(6) + importeTotal centavos(15)
+//          + ceros(61) + cuenta de cargo(10) + ceros(55)
+// Detalle: D + fecha(8) + nºempleado=ID Banco(10) + nombre en blanco(80) + importe centavos(15)
+//          + banco receptor(3) + tipo cuenta(2) + cuenta(18) + '0' + ' ' + '00000000' + espacios(18)
+const BANORTE_EMISORA = '21659';
+const BANORTE_CUENTA_CARGO = '0265911011';
+
+export function exportarBanortePag(calcData: any[], semana: any) {
+  const z = (v: any, n: number) => String(v ?? '').replace(/\D/g, '').padStart(n, '0').slice(-n);
+  const conDeposito = [...calcData].sort(byBanco).filter((d) => (d.calc.depositoBanco || 0) > 0.005);
+  if (!conDeposito.length) { alert('No hay empleados con depósito a banco en esta nómina.'); return; }
+
+  // Faltan datos bancarios → no se pueden dispersar (se excluyen y se avisa).
+  const faltan = conDeposito.filter((d) => {
+    const e = d.empleado;
+    return e.id_banco == null || e.id_banco === '' || !e.banco_cuenta || !e.banco_receptor || !e.banco_tipo_cuenta;
+  });
+  const incluidos = conDeposito.filter((d) => !faltan.includes(d));
+  if (!incluidos.length) { alert('Ningún empleado con depósito tiene la ficha del banco completa (cuenta, receptor, tipo).'); return; }
+
+  // Parámetros del archivo.
+  const hoy = new Date();
+  const defFecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+  const fechaIn = window.prompt('Fecha de aplicación (AAAA-MM-DD):', defFecha);
+  if (!fechaIn) return;
+  const ymd = fechaIn.replace(/\D/g, '').slice(0, 8);
+  if (!/^\d{8}$/.test(ymd)) { alert('Fecha inválida. Usa el formato AAAA-MM-DD.'); return; }
+  const cons = z(window.prompt('Consecutivo del archivo (2 dígitos):', '01') || '01', 2);
+
+  // Detalles.
+  let totalCent = 0;
+  const detalles = incluidos.map((d) => {
+    const cent = Math.round((d.calc.depositoBanco || 0) * 100);
+    totalCent += cent;
+    const noEmp = z(d.empleado.id_banco, 10);
+    const nombre = ' '.repeat(80);
+    const imp = z(cent, 15);
+    const receptor = z(d.empleado.banco_receptor, 3);
+    const tipo = z(d.empleado.banco_tipo_cuenta, 2);
+    const cuenta = z(d.empleado.banco_cuenta, 18);
+    return `D${ymd}${noEmp}${nombre}${imp}${receptor}${tipo}${cuenta}0 00000000${' '.repeat(18)}`;
+  });
+
+  const header = `HNE${BANORTE_EMISORA}${ymd}${cons}${z(incluidos.length, 6)}${z(totalCent, 15)}${'0'.repeat(61)}${BANORTE_CUENTA_CARGO}${'0'.repeat(55)}`;
+  const contenido = [header, ...detalles].join('\r\n') + '\r\n';
+
+  // Descarga como .pag (texto plano ASCII, sin BOM).
+  const blob = new Blob([contenido], { type: 'text/plain;charset=us-ascii' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `NI${BANORTE_EMISORA}${cons}.pag`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  const totalPesos = (totalCent / 100).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+  let msg = `Archivo Banorte generado: ${incluidos.length} registros · importe total $${totalPesos}.`;
+  if (faltan.length) {
+    msg += `\n\n⚠ ${faltan.length} con depósito NO se incluyeron por ficha del banco incompleta:\n` + faltan.map((d) => `· ${d.empleado.nombre}`).join('\n');
+  }
+  alert(msg);
+}
