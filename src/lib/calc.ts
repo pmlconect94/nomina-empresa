@@ -82,11 +82,11 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   const totalRetHrs = dias.reduce((s, d) => s + (parseFloat(d.retardo_min) || 0), 0);
 
   const asistMonto = diasCuentan * dDR;
-  // Descansos pagados según el esquema:
-  //  - Semanal: 6 días laborables + 1 descanso → factor 1/6.
-  //  - Quincenal: 13 días laborables + 2 descansos → factor 2/13.
-  // Ej. quincenal con 10 días trabajados: 10 × 2/13 = 1.54 días de descanso.
-  const descansoFactor = tipo === 'quincenal' ? (2 / 13) : (1 / 6);
+  // Descansos pagados según el esquema y la EMPRESA (días de descanso por día trabajado):
+  //  - PML semanal:    6 trabajo + 1 descanso  → factor 1/6.
+  //  - PML quincenal:  13 trabajo + 2 descanso → factor 2/13.
+  //  - MARLIN:         5 trabajo + 2 descanso  → factor 2/5 (ej. faltas 1 → 4 × 2/5 = 1.6 descanso).
+  const descansoFactor = empleado?.empresa === 'MARLIN' ? (2 / 5) : (tipo === 'quincenal' ? (2 / 13) : (1 / 6));
   const septimoDias = diasCuentan * descansoFactor;        // días de descanso pagados
   const septimo = dDR * septimoDias;
   // Asistencias pagadas (en días) = días que cuentan + su séptimo proporcional.

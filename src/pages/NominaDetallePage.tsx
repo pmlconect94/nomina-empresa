@@ -191,12 +191,12 @@ export function NominaDetallePage() {
       </div>
 
       <div className="tabs">
-        {TABS.map((t) => <button key={t.key} className={`tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>{t.label}</button>)}
+        {TABS.filter((t) => !(t.key === 'viajes' && semana.empresa === 'MARLIN')).map((t) => <button key={t.key} className={`tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>{t.label}</button>)}
       </div>
 
       {tab === 'resumen' && <TabResumen calcData={calcData} semana={semana} />}
       {tab === 'asistencias' && <TabAsistencias semana={semana} nominas={nominas} empleados={empleados} asistencias={asistencias} viajeDias={viajeDias} canEdit={canEdit && !timbrada} />}
-      {tab === 'viajes' && <ViajesPanel semana={semana} canEdit={canEdit && !timbrada} onChanged={cargar} />}
+      {tab === 'viajes' && semana.empresa !== 'MARLIN' && <ViajesPanel semana={semana} canEdit={canEdit && !timbrada} onChanged={cargar} />}
       {tab === 'comedor' && <TabComedor semana={semana} nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} />}
       {tab === 'descproducto' && <TabDescuentoProducto semana={semana} nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} onChanged={cargar} />}
       {tab === 'bonos' && <TabBonos semana={semana} nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} onChanged={cargar} />}

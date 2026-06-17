@@ -682,7 +682,12 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
   (emisora/cuenta de cargo) se toman de la config de la empresa de la nómina. **Marlin aún NO tiene
   esos datos** (vales/Banorte) → al exportar avisa "esta empresa no tiene configurada…". Falta capturar
   la razón social y cuentas de Marlin en `lib/empresas.tsx`.
+- **Diferencias de cálculo de Marlin (vs PML):**
+  - **Sin Viajes:** la pestaña Viajes se oculta en nóminas de Marlin (`NominaDetallePage`).
+  - **Descanso 2/5:** Marlin trabaja **5 días + 2 descanso** → `descansoFactor = 2/5` (PML sigue 1/6
+    semanal / 2/13 quincenal). El descanso es **proporcional** a las asistencias: faltas 1 → 4 × 2/5
+    = 1.6 de descanso. El factor depende de `empleado.empresa` en `calc.ts`.
 - **Pendiente para Marlin:** dar de alta sus empleados (con el selector en "Marlin Lizárraga"), su
-  razón social/cuentas, y luego sus nóminas.
+  razón social/cuentas (vales/Banorte en `lib/empresas.tsx`), y luego sus nóminas.
 
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->
