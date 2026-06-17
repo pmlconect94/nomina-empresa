@@ -17,7 +17,7 @@ export function ViajesPanel({ semana, canEdit, onChanged }: any) {
   const [editId, setEditId] = useState<string | null>(null); // viaje en edición (null = alta nueva)
 
   useEffect(() => { (async () => {
-    const { data: emps } = await supabase.from('empleados').select('id,nombre,id_banco,area').eq('activo', true).order('id_banco', { ascending: true, nullsFirst: false });
+    const { data: emps } = await supabase.from('empleados').select('id,nombre,id_banco,area').eq('activo', true).eq('empresa', semana.empresa).order('id_banco', { ascending: true, nullsFirst: false });
     setEmpleados(emps || []);
     fetchViajes();
   })(); }, [semana.id]);

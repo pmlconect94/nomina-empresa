@@ -666,4 +666,23 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
     al exportar. Nombre del archivo: `NI<emisora><consecutivo>.pag` (ej. `NI2165901.pag`). Excluye y
     avisa de quienes tienen depósito pero ficha del banco incompleta. CRLF, ASCII, sin BOM.
 
+### 2026-06-08 — Multi-empresa (Productos Marinos + Marlin Lizárraga)
+- **Objetivo:** manejar 2 empresas en la MISMA app, con **empleados separados**. Códigos: `PML`
+  (Productos Marinos Lizárraga, lo existente) y `MARLIN` (Marlin Lizárraga, nuevo).
+- **BD:** nueva columna **`empresa` (text, default 'PML')** en `empleados` y `semanas` (+ índices).
+  Todo lo existente quedó como PML. El resto (asistencias, viajes, préstamos, comedor, etc.) hereda
+  la empresa por el empleado/semana, no necesita columna propia.
+- **Front:** `lib/empresas.tsx` — config por empresa (nombre, razón social, cuenta de vales/Toka,
+  cuenta de cargo Banorte) + `EmpresaProvider`/`useEmpresa` (empresa activa en `localStorage`).
+  **Selector de empresa** en el Topbar (al cambiar, navega a Nóminas).
+- **Filtrado por empresa activa** en: catálogo Empleados, Nóminas (lista + crear + previa ISR/IMSS),
+  Préstamos, Dashboard. **NominaDetalle y Viajes** filtran por la empresa **de la nómina** (`sem.empresa`),
+  no por el selector. Altas de empleado/nómina nacen con la empresa activa.
+- **Exports/impresiones por empresa:** encabezado, **vales** (cuenta/producto) y **Banorte**
+  (emisora/cuenta de cargo) se toman de la config de la empresa de la nómina. **Marlin aún NO tiene
+  esos datos** (vales/Banorte) → al exportar avisa "esta empresa no tiene configurada…". Falta capturar
+  la razón social y cuentas de Marlin en `lib/empresas.tsx`.
+- **Pendiente para Marlin:** dar de alta sus empleados (con el selector en "Marlin Lizárraga"), su
+  razón social/cuentas, y luego sus nóminas.
+
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->

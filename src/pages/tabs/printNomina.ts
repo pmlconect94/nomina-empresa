@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { fmt, fmtPeriodo, fmtFecha, nomexLabel } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
+import { getEmpresa } from '@/lib/empresas';
 
 // Genera y descarga un .xlsx a partir de una matriz [filas][columnas].
 function descargarXLSX(aoa: (string | number)[][], sheetName: string, filename: string) {
@@ -13,9 +14,7 @@ function descargarXLSX(aoa: (string | number)[][], sheetName: string, filename: 
 // Formatos de impresión / exportación de la nómina.
 export type TipoImpresion = 'incidencias' | 'viajeshe' | 'dispersion' | 'fiscal';
 
-const EMPRESA = 'Productos Marinos Lizárraga';
-const VALES_ID_CUENTA = '26260';      // cuenta de vales de la empresa (constante)
-const VALES_PRODUCTO = 'EASYVALE CHIP'; // producto destino (constante)
+const EMPRESA = 'Productos Marinos Lizárraga'; // fallback si la nómina no trae empresa
 
 function esc(s: any): string {
   return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
@@ -60,12 +59,12 @@ function abrirVentana(): Window | null {
   return w;
 }
 
-function render(w: Window, opts: { titulo: string; periodo: string; tipoSemana: string; body: string; landscape: boolean; firmas?: boolean }) {
+function render(w: Window, opts: { titulo: string; periodo: string; tipoSemana: string; body: string; landscape: boolean; firmas?: boolean; empresa?: string }) {
   const generado = new Date().toLocaleString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   const doc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(opts.titulo)} · ${esc(opts.periodo)}</title><style>${CSS(opts.landscape)}</style></head>
   <body>
     <div class="head">
-      <div><h1>${esc(EMPRESA)}</h1><div class="sub">${esc(opts.titulo)} · Semana del ${esc(opts.periodo)}</div></div>
+      <div><h1>${esc(opts.empresa || EMPRESA)}</h1><div class="sub">${esc(opts.titulo)} · Semana del ${esc(opts.periodo)}</div></div>
       <div class="meta">${esc(opts.tipoSemana)}<br>Generado: ${esc(generado)}</div>
     </div>
     ${opts.body}
@@ -267,16 +266,17 @@ export async function imprimirNomina(tipo: TipoImpresion, calcData: any[], seman
   if (!w) return;
   const periodo = semana ? fmtPeriodo(semana.fecha_inicio, semana.fecha_fin) : '';
   const tipoSemana = semana?.tipo || '';
+  const empresa = getEmpresa(semana?.empresa).nombre;
   try {
     if (tipo === 'incidencias') {
-      render(w, { titulo: 'Incidencias', periodo, tipoSemana, body: bodyIncidencias(calcData, semana), landscape: true });
+      render(w, { titulo: 'Incidencias', periodo, tipoSemana, empresa, body: bodyIncidencias(calcData, semana), landscape: true });
     } else if (tipo === 'viajeshe') {
       const body = await bodyViajesHE(calcData, semana);
-      render(w, { titulo: 'Viajes y horas extra', periodo, tipoSemana, body, landscape: false });
+      render(w, { titulo: 'Viajes y horas extra', periodo, tipoSemana, empresa, body, landscape: false });
     } else if (tipo === 'dispersion') {
-      render(w, { titulo: 'Dispersión de nómina', periodo, tipoSemana, body: bodyDispersion(calcData, semana), landscape: true, firmas: true });
+      render(w, { titulo: 'Dispersión de nómina', periodo, tipoSemana, empresa, body: bodyDispersion(calcData, semana), landscape: true, firmas: true });
     } else if (tipo === 'fiscal') {
-      render(w, { titulo: 'Reporte fiscal', periodo, tipoSemana, body: bodyFiscal(calcData, semana), landscape: true, firmas: true });
+      render(w, { titulo: 'Reporte fiscal', periodo, tipoSemana, empresa, body: bodyFiscal(calcData, semana), landscape: true, firmas: true });
     }
   } catch (e) {
     w.document.open(); w.document.write('<body style="font-family:sans-serif;padding:40px">Error al generar el documento. Revisa la consola.</body>'); w.document.close();
@@ -286,6 +286,8 @@ export async function imprimirNomina(tipo: TipoImpresion, calcData: any[], seman
 
 // ───────────────────────── EXPORT VALES (.xlsx) ─────────────────────────
 export function exportarValesXLSX(calcData: any[], semana: any) {
+  const vales = getEmpresa(semana?.empresa).vales;
+  if (!vales) { alert('Esta empresa aún no tiene configurada su cuenta de vales.'); return; }
   const data = [...calcData].sort(byBanco).filter((d) => d.calc.altaImss && (d.calc.vales || 0) > 0.005);
   const sinToka = data.filter((d) => d.empleado.id_toka == null || d.empleado.id_toka === '');
   const buenos = data.filter((d) => !(d.empleado.id_toka == null || d.empleado.id_toka === ''));
@@ -295,7 +297,7 @@ export function exportarValesXLSX(calcData: any[], semana: any) {
   const aoa: (string | number)[][] = [['ID', 'NOMINA', 'MONTO', 'PRODUCTO']];
   buenos.forEach((d) => {
     const monto = Math.round((d.calc.vales || 0) * 100) / 100;
-    aoa.push([Number(VALES_ID_CUENTA), d.empleado.id_toka, monto, VALES_PRODUCTO]);
+    aoa.push([Number(vales.idCuenta), d.empleado.id_toka, monto, vales.producto]);
   });
   const periodo = semana ? `${semana.fecha_inicio}_a_${semana.fecha_fin}` : 'nomina';
   descargarXLSX(aoa, 'Vales', `vales_easyvale_${periodo}.xlsx`);
@@ -332,10 +334,11 @@ export function exportarDispersionBancoXLSX(calcData: any[], semana: any) {
 //          + ceros(61) + cuenta de cargo(10) + ceros(55)
 // Detalle: D + fecha(8) + nºempleado=ID Banco(10) + nombre en blanco(80) + importe centavos(15)
 //          + banco receptor(3) + tipo cuenta(2) + cuenta(18) + '0' + ' ' + '00000000' + espacios(18)
-const BANORTE_EMISORA = '21659';
-const BANORTE_CUENTA_CARGO = '0265911011';
+// (La emisora y cuenta de cargo se toman de la config de la empresa de la nómina.)
 
 export function exportarBanortePag(calcData: any[], semana: any) {
+  const banorte = getEmpresa(semana?.empresa).banorte;
+  if (!banorte) { alert('Esta empresa aún no tiene configurada su cuenta de cargo Banorte.'); return; }
   const z = (v: any, n: number) => String(v ?? '').replace(/\D/g, '').padStart(n, '0').slice(-n);
   const conDeposito = [...calcData].sort(byBanco).filter((d) => (d.calc.depositoBanco || 0) > 0.005);
   if (!conDeposito.length) { alert('No hay empleados con depósito a banco en esta nómina.'); return; }
@@ -371,7 +374,7 @@ export function exportarBanortePag(calcData: any[], semana: any) {
     return `D${ymd}${noEmp}${nombre}${imp}${receptor}${tipo}${cuenta}0 00000000${' '.repeat(18)}`;
   });
 
-  const header = `HNE${BANORTE_EMISORA}${ymd}${cons}${z(incluidos.length, 6)}${z(totalCent, 15)}${'0'.repeat(61)}${BANORTE_CUENTA_CARGO}${'0'.repeat(55)}`;
+  const header = `HNE${banorte.emisora}${ymd}${cons}${z(incluidos.length, 6)}${z(totalCent, 15)}${'0'.repeat(61)}${banorte.cuentaCargo}${'0'.repeat(55)}`;
   const contenido = [header, ...detalles].join('\r\n') + '\r\n';
 
   // Descarga como .pag (texto plano ASCII, sin BOM).
@@ -379,7 +382,7 @@ export function exportarBanortePag(calcData: any[], semana: any) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `NI${BANORTE_EMISORA}${cons}.pag`;
+  a.download = `NI${banorte.emisora}${cons}.pag`;
   a.click();
   URL.revokeObjectURL(url);
 

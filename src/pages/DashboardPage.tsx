@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { fmt, MESES } from '@/lib/format';
 import { PageEnter } from '@/components/motion';
 import { useAuth } from '@/lib/auth';
+import { useEmpresa } from '@/lib/empresas';
 
 /* ───────────────────────── helpers ───────────────────────── */
 const N = (v: any) => Number(v) || 0;
@@ -59,6 +60,7 @@ function SectionCard({ title, hint, children, style }: { title: string; hint?: s
 
 export function DashboardPage() {
   const { user } = useAuth();
+  const { code: empresa } = useEmpresa();
   const [loading, setLoading] = useState(true);
   const [emps, setEmps] = useState<Emp[]>([]);
   const [nomMap, setNomMap] = useState<Record<string, string>>({}); // nomina_id → empleado_id
@@ -71,23 +73,29 @@ export function DashboardPage() {
 
   useEffect(() => {
     (async () => {
+      setLoading(true);
       const [emp, nom, a, v, c, p] = await Promise.all([
-        supabase.from('empleados').select('id,nombre,id_banco,activo'),
+        supabase.from('empleados').select('id,nombre,id_banco,activo').eq('empresa', empresa),
         supabase.from('nominas').select('id,empleado_id'),
         supabase.from('asistencias').select('fecha,codigo,te_horas,te_motivo,retardo_min,nomina_id'),
         supabase.from('viajes').select('fecha,destino,chofer_id,acompanante_id,retroactivo'),
         supabase.from('comedor_registro').select('fecha,empleado_id'),
         supabase.from('prestamos').select('empleado_id,monto,saldo,activo').eq('activo', true),
       ]);
-      setEmps((emp.data || []) as Emp[]);
-      setNomMap(Object.fromEntries(((nom.data || []) as any[]).map((n) => [n.id, n.empleado_id])));
-      setAsis((a.data || []) as Asis[]);
-      setViajes((v.data || []) as Viaje[]);
-      setComidas((c.data || []) as Comida[]);
-      setPrestamos((p.data || []) as Prestamo[]);
+      // Solo datos de los empleados de esta empresa.
+      const empList = (emp.data || []) as Emp[];
+      const empIds = new Set(empList.map((e) => e.id));
+      const noms = ((nom.data || []) as any[]).filter((n) => empIds.has(n.empleado_id));
+      const nomIds = new Set(noms.map((n) => n.id));
+      setEmps(empList);
+      setNomMap(Object.fromEntries(noms.map((n) => [n.id, n.empleado_id])));
+      setAsis(((a.data || []) as Asis[]).filter((x: any) => nomIds.has(x.nomina_id)));
+      setViajes(((v.data || []) as Viaje[]).filter((x: any) => empIds.has(x.chofer_id) || empIds.has(x.acompanante_id)));
+      setComidas(((c.data || []) as Comida[]).filter((x: any) => empIds.has(x.empleado_id)));
+      setPrestamos(((p.data || []) as Prestamo[]).filter((x: any) => empIds.has(x.empleado_id)));
       setLoading(false);
     })();
-  }, []);
+  }, [empresa]);
 
   const empMap = useMemo(() => Object.fromEntries(emps.map((e) => [e.id, e])), [emps]);
   const nombre = (empId?: string | null) => (empId && empMap[empId]?.nombre) || '—';

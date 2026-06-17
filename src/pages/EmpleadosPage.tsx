@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
+import { useEmpresa } from '@/lib/empresas';
 import { calcEdad, fmtFecha, nomexLabel } from '@/lib/format';
 import { Icon } from '@/components/Icon';
 import { PageEnter } from '@/components/motion';
@@ -31,6 +32,7 @@ function Campo({ label, value }: { label: string; value: any }) {
 
 export function EmpleadosPage() {
   const { user, reauth } = useAuth();
+  const { code: empresa } = useEmpresa();
   const canEdit = user?.rol === 'admin';
   const canSueldo = user?.rol === 'admin' || user?.rol === 'editor';
   const [empleados, setEmpleados] = useState<any[]>([]);
@@ -51,9 +53,9 @@ export function EmpleadosPage() {
   const [gatePass, setGatePass] = useState('');
   const [gateBusy, setGateBusy] = useState(false);
 
-  useEffect(() => { fetchEmpleados(); }, []);
+  useEffect(() => { fetchEmpleados(); }, [empresa]);
   async function fetchEmpleados() {
-    const { data } = await supabase.from('empleados').select('*').order('id_banco', { ascending: true, nullsFirst: false });
+    const { data } = await supabase.from('empleados').select('*').eq('empresa', empresa).order('id_banco', { ascending: true, nullsFirst: false });
     setEmpleados(data || []);
   }
 
@@ -92,7 +94,7 @@ export function EmpleadosPage() {
       contacto_nombre: txt(form.contacto_nombre), contacto_parentesco: txt(form.contacto_parentesco), contacto_telefono: txt(form.contacto_telefono),
     };
     const { error } = nuevo
-      ? await supabase.from('empleados').insert(data)
+      ? await supabase.from('empleados').insert({ ...data, empresa })
       : await supabase.from('empleados').update(data).eq('id', editando);
     if (error) { toast.error('Error: ' + error.message); setSaving(false); return; }
     toast.success(nuevo ? 'Empleado creado' : 'Cambios guardados');

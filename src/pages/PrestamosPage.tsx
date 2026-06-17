@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
+import { useEmpresa } from '@/lib/empresas';
 import { fmt, fmtFecha, fmtFechaHora, fmtPeriodo, MESES } from '@/lib/format';
 import { descuentoPrestamoMonto } from '@/lib/calc';
 import { Icon } from '@/components/Icon';
@@ -9,6 +10,7 @@ import { PageEnter } from '@/components/motion';
 
 export function PrestamosPage() {
   const { user } = useAuth();
+  const { code: empresa } = useEmpresa();
   const canEdit = user?.rol !== 'viewer';
   const [prestamos, setPrestamos] = useState<any[]>([]);
   const [empleados, setEmpleados] = useState<any[]>([]);
@@ -31,9 +33,9 @@ export function PrestamosPage() {
   }
   const totalAbonado = (p: any) => (p ? p.monto - p.saldo : 0);
 
-  useEffect(() => { fetchP(); fetchE(); }, []);
-  async function fetchP() { const { data } = await supabase.from('prestamos').select('*, empleado:empleado_id(nombre,area)').order('created_at', { ascending: false }); setPrestamos(data || []); }
-  async function fetchE() { const { data } = await supabase.from('empleados').select('id,nombre,id_banco').eq('activo', true).order('id_banco', { ascending: true, nullsFirst: false }); setEmpleados(data || []); }
+  useEffect(() => { fetchP(); fetchE(); }, [empresa]);
+  async function fetchP() { const { data } = await supabase.from('prestamos').select('*, empleado:empleado_id!inner(nombre,area,empresa)').eq('empleado.empresa', empresa).order('created_at', { ascending: false }); setPrestamos(data || []); }
+  async function fetchE() { const { data } = await supabase.from('empleados').select('id,nombre,id_banco').eq('activo', true).eq('empresa', empresa).order('id_banco', { ascending: true, nullsFirst: false }); setEmpleados(data || []); }
 
   async function guardar() {
     if (!form.empleado_id || !form.monto || !form.fecha_prestamo) return;
