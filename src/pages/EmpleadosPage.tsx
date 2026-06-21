@@ -2,13 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { useEmpresa } from '@/lib/empresas';
+import { useEmpresa, getEmpresa } from '@/lib/empresas';
 import { calcEdad, fmtFecha, nomexLabel } from '@/lib/format';
 import { Icon } from '@/components/Icon';
 import { PageEnter } from '@/components/motion';
 import { SueldoModal } from './SueldoModal';
 
-const AREAS = ['Administración', 'Cobranza', 'Contabilidad', 'Logistica/Almacen', 'Recursos Humanos', 'Ventas'];
 const ESQUEMAS = ['Semanal', 'Quincenal'];
 const SEXOS = ['Masculino', 'Femenino'];
 const ESTADO_CIVIL = ['Soltero', 'Soltera', 'Casado', 'Casada', 'Union libre', 'Viudo', 'Viuda', 'Divorciado', 'Divorciada'];
@@ -33,6 +32,7 @@ function Campo({ label, value }: { label: string; value: any }) {
 export function EmpleadosPage() {
   const { user, reauth } = useAuth();
   const { code: empresa } = useEmpresa();
+  const areas = getEmpresa(empresa).areas;
   const canEdit = user?.rol === 'admin';
   const canSueldo = user?.rol === 'admin' || user?.rol === 'editor';
   const [empleados, setEmpleados] = useState<any[]>([]);
@@ -282,7 +282,7 @@ export function EmpleadosPage() {
               <div className="form-grid"><div><label className="field-label">Nombre completo *</label><input className="field-input" value={form.nombre || ''} onChange={(e) => f('nombre', e.target.value)} /></div></div>
               <div className="form-grid form-grid-2" style={{ marginTop: 10 }}>
                 <div><label className="field-label">Puesto</label><input className="field-input" value={form.puesto || ''} onChange={(e) => f('puesto', e.target.value)} /></div>
-                <div><label className="field-label">Área</label><select className="field-input" value={form.area || ''} onChange={(e) => f('area', e.target.value)}><option value="">—</option>{AREAS.map((a) => <option key={a}>{a}</option>)}{form.area && !AREAS.includes(form.area) && <option>{form.area}</option>}</select></div>
+                <div><label className="field-label">Área</label><select className="field-input" value={form.area || ''} onChange={(e) => f('area', e.target.value)}><option value="">—</option>{areas.map((a) => <option key={a}>{a}</option>)}{form.area && !areas.includes(form.area) && <option>{form.area}</option>}</select></div>
               </div>
               <div className="form-grid form-grid-2" style={{ marginTop: 10 }}>
                 <div><label className="field-label">Jefe inmediato</label><input className="field-input" value={form.jefe_inmediato || ''} onChange={(e) => f('jefe_inmediato', e.target.value)} /></div>
