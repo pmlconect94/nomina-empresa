@@ -25,11 +25,12 @@ export function TabComedor({ semana, nominas, empleados, canEdit }: any) {
       return out.slice(0, 10);
     }
 
-    // Semanal: la nómina cierra el VIERNES, así que ese día aún no se sabe el comedor → pasa a la
-    // siguiente nómina. El comedor corre del VIERNES anterior al lunes hasta el JUEVES de la semana
-    // (p.ej. nómina lun 1–dom 7 → comedor vie 29, lun 1, mar 2, mié 3, jue 4 = 5 días).
-    const start = new Date(ini); start.setDate(ini.getDate() - 3); // viernes anterior al lunes
-    const end = new Date(ini); end.setDate(ini.getDate() + 3);     // jueves de la semana
+    // MARLIN: la nómina cierra el JUEVES → el comedor corre del JUEVES anterior al JUEVES de la semana
+    // (un día más que PML): jue (lun−4), vie, lun, mar, mié, jue (lun+3) = 6 días.
+    // Ej.: semana lun 15 jun → comedor jue 11, vie 12, lun 15, mar 16, mié 17, jue 18.
+    const esMarlin = semana.empresa === 'MARLIN';
+    const start = new Date(ini); start.setDate(ini.getDate() - (esMarlin ? 4 : 3)); // jueves (Marlin) / viernes (PML) anterior
+    const end = new Date(ini); end.setDate(ini.getDate() + 3);                       // jueves de la semana
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dow = d.getDay();
       if (dow >= 1 && dow <= 5) out.push(new Date(d));

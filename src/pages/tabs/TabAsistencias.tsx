@@ -4,13 +4,25 @@ import { CODIGOS_ASISTENCIA, MOTIVOS_TE, DIAS_SEMANA } from '@/lib/calc';
 import { fmt, toISO } from '@/lib/format';
 
 const MESES_C = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-const COLOR: Record<string, string> = { A: '#EAF3DE', F: '#FCEBEB', D: '#F1EFE8', V: '#E6F1FB', PSG: '#FAEEDA', PCG: '#EEEDFE', TXT: '#E1F5EE', SUS: '#FCEBEB' };
+const COLOR: Record<string, string> = { A: '#9FDB86', F: '#F58A8A', D: '#F4CE6B', V: '#86BCEC', PSG: '#F2A94E', PCG: '#B79AEC', TXT: '#74D4B4', SUS: '#EE82AE', INC: '#5FC9DC' };
 
 export function TabAsistencias({ semana, nominas, empleados, asistencias, viajeDias, canEdit }: any) {
   const [local, setLocal] = useState<Record<string, any>>({});
   const [sortEmp, setSortEmp] = useState<{ key: 'id_banco' | 'nombre'; dir: 1 | -1 }>({ key: 'id_banco', dir: 1 });
   const [areaFiltro, setAreaFiltro] = useState<string>('Todas');
+  const [fullscreen, setFullscreen] = useState(false);
   const toggleSort = (key: 'id_banco' | 'nombre') => setSortEmp((s) => s.key === key ? { key, dir: (s.dir === 1 ? -1 : 1) } : { key, dir: 1 });
+
+  // Modo pantalla completa (enfoque): overlay que cubre toda la ventana para capturar sin scrollear el shell.
+  // Esc sale; mientras está activo se bloquea el scroll del body.
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFullscreen(false); };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prevOverflow; };
+  }, [fullscreen]);
   const empOrden = useMemo(() => {
     return [...empleados].sort((a, b) => {
       let va: any, vb: any;
@@ -81,18 +93,23 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, viajeD
   }
 
   return (
-    <div>
-      <div className="hstack" style={{ gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        <span className="text-xs muted" style={{ marginRight: 2 }}>Área:</span>
-        <div className="segmented" style={{ flexWrap: 'wrap' }}>
-          <button className={areaFiltro === 'Todas' ? 'active' : ''} onClick={() => setAreaFiltro('Todas')}>Todas</button>
-          {areas.map((a) => <button key={a} className={areaFiltro === a ? 'active' : ''} onClick={() => setAreaFiltro(a)}>{a}</button>)}
+    <div style={fullscreen ? { position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--ink-50)', padding: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden' } : undefined}>
+      <div className="hstack" style={{ gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="hstack" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span className="text-xs muted" style={{ marginRight: 2 }}>Área:</span>
+          <div className="segmented" style={{ flexWrap: 'wrap' }}>
+            <button className={areaFiltro === 'Todas' ? 'active' : ''} onClick={() => setAreaFiltro('Todas')}>Todas</button>
+            {areas.map((a) => <button key={a} className={areaFiltro === a ? 'active' : ''} onClick={() => setAreaFiltro(a)}>{a}</button>)}
+          </div>
         </div>
+        <button className={`btn btn-sm ${fullscreen ? 'btn-primary' : 'btn-outline'}`} onClick={() => setFullscreen((f) => !f)} title="Capturar a pantalla completa (Esc para salir)">
+          {fullscreen ? '✕ Salir de pantalla completa' : '⛶ Pantalla completa'}
+        </button>
       </div>
       <div className="hstack" style={{ gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
         {Object.entries(COLOR).map(([c, bg]) => <span key={c} className="hstack text-xs" style={{ gap: 4 }}><i style={{ width: 12, height: 12, borderRadius: 3, background: bg, display: 'inline-block', border: '1px solid var(--ink-200)' }} />{c}</span>)}
       </div>
-      <div className="card tbl-freeze">
+      <div className="card tbl-freeze" style={fullscreen ? { flex: 1, maxHeight: 'none', marginBottom: 0 } : undefined}>
         <table className="tbl" style={{ fontSize: 12 }}>
           <thead>
             <tr>
@@ -155,7 +172,7 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, viajeD
           </tbody>
         </table>
       </div>
-      <div className="card" style={{ marginTop: 12, padding: 12 }}>
+      <div className="card" style={{ marginTop: 12, padding: 12, display: fullscreen ? 'none' : undefined }}>
         <div className="text-xs fw-700" style={{ marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--ink-500)' }}>Incidencias — qué resta y qué no (todo queda en el historial)</div>
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 6 }}>
           {[
@@ -167,6 +184,7 @@ export function TabAsistencias({ semana, nominas, empleados, asistencias, viajeD
             { c: 'F', n: 'Falta', resta: true },
             { c: 'PSG', n: 'Permiso sin goce de sueldo', resta: true },
             { c: 'SUS', n: 'Suspensión', resta: true },
+            { c: 'INC', n: 'Incapacidad', resta: true },
           ].map((it) => (
             <div key={it.c} className="hstack text-xs" style={{ gap: 6, justifyContent: 'space-between', padding: '3px 6px', borderRadius: 6, background: COLOR[it.c] || 'var(--ink-50)' }}>
               <span><strong>{it.c}</strong> · {it.n}</span>

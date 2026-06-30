@@ -6,9 +6,14 @@ import { fmt, fmtFecha, toISO } from '@/lib/format';
 import { Icon } from '@/components/Icon';
 
 // Horas extra RETROACTIVAS: horas de otro periodo pagadas en esta nómina.
-// El monto se calcula como las HE normales: horas × valor hora × 2.
-// (valor hora = sueldo diario real / 8; sueldo diario = sd_real / 7).
-const montoHE = (emp: any, horas: number) => (((emp?.sd_real || 0) / 7) / 8) * 2 * (horas || 0);
+// El monto se calcula como las HE normales: horas × valor hora × 2 (valor hora = diario / 8).
+// Mismo criterio que calc.ts: SOLO MARLIN con el switch APAGADO (usar_sueldo_real=false) usa el
+// sueldo FISCAL; en cualquier otro caso usa el real.
+const montoHE = (emp: any, horas: number) => {
+  const usaFiscal = emp?.empresa === 'MARLIN' && emp?.usar_sueldo_real === false;
+  const sd = usaFiscal ? (emp?.sd_fiscal || 0) : (emp?.sd_real || 0);
+  return ((sd / 7) / 8) * 2 * (horas || 0);
+};
 
 export function TabRetroactivos({ semana, nominas, empleados, canEdit, onChanged }: any) {
   const [items, setItems] = useState<any[]>([]);

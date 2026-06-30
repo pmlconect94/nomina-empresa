@@ -112,6 +112,22 @@ export function EmpleadosPage() {
     else { setGate({ emp: e, action: 'imss-off' }); setGatePass(''); }  // on → off: requiere autorización
   }
 
+  // Solo MARLIN: prendido = cálculos con sueldo real (default); apagado = con sueldo fiscal.
+  async function setUsarReal(e: any, val: boolean) {
+    if (!canEdit) return;
+    setEmpleados((prev) => prev.map((x) => x.id === e.id ? { ...x, usar_sueldo_real: val } : x));
+    const { error } = await supabase.from('empleados').update({ usar_sueldo_real: val }).eq('id', e.id);
+    if (error) { toast.error(error.message); fetchEmpleados(); }
+  }
+
+  // Solo MARLIN: jornada 5 (5+2 descanso) o 6 (6+1 descanso).
+  async function setJornada(e: any, val: number) {
+    if (!canEdit) return;
+    setEmpleados((prev) => prev.map((x) => x.id === e.id ? { ...x, dias_trabajo: val } : x));
+    const { error } = await supabase.from('empleados').update({ dias_trabajo: val }).eq('id', e.id);
+    if (error) { toast.error(error.message); fetchEmpleados(); }
+  }
+
   async function confirmarGate() {
     if (!gatePass) return;
     setGateBusy(true);
@@ -186,7 +202,7 @@ export function EmpleadosPage() {
           <thead>
             <tr>
               <th>Nomex</th><th>Nombre</th><th>Área</th><th>Puesto</th><th>Esquema</th>
-              <th className="center">Alta IMSS</th><th>Status</th><th></th>
+              <th className="center">Alta IMSS</th>{empresa === 'MARLIN' && <><th className="center">Cálculo</th><th className="center">Jornada</th></>}<th>Status</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -203,6 +219,22 @@ export function EmpleadosPage() {
                     <span className={`text-xs ${e.alta_imss ? 'pos' : 'muted'}`}>{e.alta_imss ? 'Transf. + vales' : 'Efectivo'}</span>
                   </div>
                 </td>
+                {empresa === 'MARLIN' && (
+                  <td className="center">
+                    <div className="hstack" style={{ gap: 8, justifyContent: 'center' }}>
+                      <button className={`switch ${e.usar_sueldo_real === false ? 'on' : ''}`} onClick={() => setUsarReal(e, !(e.usar_sueldo_real !== false))} disabled={!canEdit} title="Prendido: cálculos con sueldo FISCAL · Apagado: con sueldo REAL" />
+                      <span className={`text-xs ${e.usar_sueldo_real === false ? 'orange' : 'pos'}`}>{e.usar_sueldo_real === false ? 'Fiscal' : 'Real'}</span>
+                    </div>
+                  </td>
+                )}
+                {empresa === 'MARLIN' && (
+                  <td className="center">
+                    <select className="field-input" value={Number(e.dias_trabajo) === 6 ? 6 : 5} disabled={!canEdit} onChange={(ev) => setJornada(e, Number(ev.target.value))} style={{ width: 96, padding: '4px 6px', fontSize: 12 }} title="Días de trabajo + descanso por semana">
+                      <option value={5}>5 + 2</option>
+                      <option value={6}>6 + 1</option>
+                    </select>
+                  </td>
+                )}
                 <td><span className={`badge ${e.activo ? 'badge-green' : 'badge-gray'}`}><span className="dot" />{e.activo ? 'Activo' : 'Baja'}</span></td>
                 <td>
                   <div className="hstack" style={{ gap: 4, justifyContent: 'flex-end' }}>
@@ -212,7 +244,7 @@ export function EmpleadosPage() {
                 </td>
               </tr>
             ))}
-            {lista.length === 0 && <tr><td colSpan={8}><div className="empty"><div className="empty-title">Sin empleados</div></div></td></tr>}
+            {lista.length === 0 && <tr><td colSpan={empresa === 'MARLIN' ? 10 : 8}><div className="empty"><div className="empty-title">Sin empleados</div></div></td></tr>}
           </tbody>
         </table>
       </div>

@@ -23,7 +23,7 @@ const byBanco = (a: any, b: any) => (a.empleado.id_banco ?? 9e9) - (b.empleado.i
 const m = (n: number) => esc(fmt(n));
 
 // Colores por código de incidencia (impresión).
-const COD_BG: Record<string, string> = { A: '#cdeac0', F: '#f6b8b8', D: '#f2cd86', V: '#bcd8f5', PSG: '#f6e2b3', PCG: '#ddd0f4', TXT: '#bfe9d8', SUS: '#f6b8b8' };
+const COD_BG: Record<string, string> = { A: '#9FDB86', F: '#F58A8A', D: '#F4CE6B', V: '#86BCEC', PSG: '#F2A94E', PCG: '#B79AEC', TXT: '#74D4B4', SUS: '#EE82AE', INC: '#5FC9DC' };
 
 const CSS = (landscape: boolean) => `
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact; }
@@ -228,7 +228,8 @@ function bodyFiscal(calcData: any[], semana: any): string {
   const data = [...calcData].sort((a, b) => (a.empleado.id_nomex ?? 9e9) - (b.empleado.id_nomex ?? 9e9));
   // Número de días (entero si es redondo, si no 2 decimales). 0 → "—".
   const nd = (n: number) => { const r = Math.round(n * 100) / 100; return r === 0 ? '—' : (Number.isInteger(r) ? String(r) : r.toFixed(2)); };
-  const septDias = (c: any) => (c.dDR > 0 ? c.septimo / c.dDR : 0); // días de séptimo = monto / sueldo diario
+  // días de séptimo = monto / sueldo diario base (real o fiscal según el switch de Marlin).
+  const septDias = (c: any) => { const base = c.dBase ?? c.dDR; return base > 0 ? c.septimo / base : 0; };
   const fila = (d: any) => {
     const e = d.empleado, c = d.calc;
     return `<tr>

@@ -32,7 +32,7 @@ function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
           <div className="grid grid-3" style={{ marginBottom: 14 }}>
             <div className="kpi"><span className="kpi-label">Días asistencia</span><span className="kpi-value">{c.diasA}</span></div>
             <div className="kpi"><span className="kpi-label">Faltas</span><span className="kpi-value">{c.diasF}</span></div>
-            <div className="kpi"><span className="kpi-label">Sueldo diario</span><span className="kpi-value">{fmt(c.dDR)}</span></div>
+            <div className="kpi"><span className="kpi-label">Sueldo diario{c.usaFiscalBase ? ' (fiscal)' : ''}</span><span className="kpi-value">{fmt(c.dBase ?? c.dDR)}</span></div>
           </div>
 
           <div className="form-section-title">Percepciones</div>
@@ -44,7 +44,9 @@ function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
           <Linea label={`Retroactivo · horas extra (${c.teRetroHrs}h)`} value={c.teRetro} />
           <Linea label="Comisiones" value={c.comisiones} />
           <Linea label="Retroactivos" value={c.retroactivos} />
-          <Linea label="Total percepciones" value={c.totalPerc} bold />
+          {c.usaFiscalBase && <Linea label="Previsión social" value={c.prevSocial} />}
+          {c.usaFiscalBase && <Linea label="Vales de despensa" value={c.vales} />}
+          <Linea label="Total percepciones" value={c.usaFiscalBase ? (c.totalPerc + c.vales + c.prevSocial) : c.totalPerc} bold />
 
           {diasHE.length > 0 && (
             <div style={{ marginTop: 6, paddingLeft: 8 }}>
@@ -74,14 +76,16 @@ function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
           <Linea label="Descuento de producto" value={c.descuentoProducto} neg />
           <Linea label={`Retardos (${(c.totalRetHrs || 0).toFixed(2)}h)`} value={c.retardoMonto} neg />
           <Linea label="Préstamos" value={descPrestamo} neg />
-          <Linea label="Total deducciones" value={c.totalDed} neg bold />
+          {c.usaFiscalBase && <Linea label="ISR" value={c.isr} neg />}
+          {c.usaFiscalBase && <Linea label="IMSS" value={c.imss} neg />}
+          <Linea label="Total deducciones" value={c.usaFiscalBase ? (c.totalDed + c.isr + c.imss) : c.totalDed} neg bold />
 
           <div className="form-section-title">Resultado</div>
           <div className="hstack" style={{ justifyContent: 'space-between', padding: '10px 12px', background: 'var(--green-100)', borderRadius: 'var(--r-md)', marginBottom: 14 }}>
             <span className="fw-700">Neto a pagar</span><span className="mono fw-700" style={{ fontSize: 18 }}>{fmt(c.neto)}</span>
           </div>
 
-          {c.altaImss && (
+          {c.altaImss && !c.usaFiscalBase && (
             <>
               <div className="form-section-title">Parte fiscal (no afecta el neto)</div>
               <Linea label="Sueldo fiscal del periodo" value={c.sueldoFiscalPeriodo} />
@@ -94,11 +98,22 @@ function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
           )}
 
           <div className="form-section-title">Distribución del pago</div>
-          {c.altaImss && c.tieneCorregido && <Linea label="Depósito corregido (manual)" value={c.depositoCorregido} bold red />}
-          {c.altaImss && !c.tieneCorregido && <Linea label="Depósito a depositar" value={c.depositoCorregido} bold />}
-          <Linea label="Vales de despensa" value={c.vales} />
-          <Linea label="Depósito a banco" value={c.depositoBanco} />
-          <Linea label="Efectivo" value={c.efectivo} />
+          {!c.altaImss ? (
+            <Linea label="Efectivo" value={c.efectivo} bold />
+          ) : c.modeloMarlin ? (
+            <>
+              <Linea label="Depósito (banco + vales)" value={c.depositoCorregido} bold red={c.tieneCorregido} />
+              <Linea label="Efectivo" value={c.efectivo} bold />
+            </>
+          ) : (
+            <>
+              {c.tieneCorregido && <Linea label="Depósito corregido (manual)" value={c.depositoCorregido} bold red />}
+              {!c.tieneCorregido && <Linea label="Depósito a depositar" value={c.depositoCorregido} bold />}
+              <Linea label="Vales de despensa" value={c.vales} />
+              <Linea label="Depósito a banco" value={c.depositoBanco} />
+              <Linea label="Efectivo" value={c.efectivo} />
+            </>
+          )}
         </div>
         <div className="modal-footer">
           <button className="btn btn-outline" onClick={() => window.print()}><Icon name="printer" size={14} /> Imprimir</button>
@@ -125,7 +140,7 @@ export function TabResumen({ calcData, semana }: { calcData: any[]; semana: any 
 
   const t = calcData.reduce((acc, d) => {
     acc.perc += d.calc.totalPerc; acc.ded += d.calc.totalDed; acc.neto += d.calc.neto;
-    acc.dep += d.calc.deposito; acc.vales += d.calc.vales; acc.depBanco += d.calc.depositoBanco; acc.efectivo += d.calc.efectivo;
+    acc.dep += d.calc.deposito; acc.vales += d.calc.valesPago; acc.depBanco += d.calc.depositoBanco; acc.efectivo += d.calc.efectivo;
     return acc;
   }, { perc: 0, ded: 0, neto: 0, dep: 0, vales: 0, depBanco: 0, efectivo: 0 });
 
@@ -220,7 +235,7 @@ export function TabResumen({ calcData, semana }: { calcData: any[]; semana: any 
                   <td className="right mono">{c.descuentoProducto > 0 ? '-' + fmt(c.descuentoProducto) : '—'}</td>
                   <td className="right mono fw-700">{fmt(c.neto)}</td>
                   <td className="right mono orange">{fmt(c.depositoBanco)}</td>
-                  <td className="right mono orange">{fmt(c.vales)}</td>
+                  <td className="right mono orange">{fmt(c.valesPago)}</td>
                   <td className="right mono blue">{fmt(c.efectivo)}</td>
                 </tr>
               );

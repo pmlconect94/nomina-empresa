@@ -690,4 +690,54 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
 - **Pendiente para Marlin:** dar de alta sus empleados (con el selector en "Marlin Lizárraga"), su
   razón social/cuentas (vales/Banorte en `lib/empresas.tsx`), y luego sus nóminas.
 
+### 2026-06-29 — MARLIN: switch Real/Fiscal manda TODO el modelo (⚠️ LEER, no volver a equivocarse)
+> **REGLA DE ORO (solo MARLIN):** el switch **"Cálculo" Real/Fiscal** por empleado
+> (`empleados.usar_sueldo_real`, columna `EmpleadosPage`) **decide el MODELO COMPLETO de la nómina**.
+> **NO** atar el modelo al **Alta IMSS** — eso fue un error y se corrigió. El **Alta IMSS** solo
+> decide la **distribución** (partir en banco+vales vs todo efectivo), nunca el modelo.
+
+- **Mapeo del switch** (`usaFiscalBase = empresa==='MARLIN' && usar_sueldo_real===false`):
+  - **APAGADO = "Real"** (`usar_sueldo_real` ≠ false) → `usaFiscalBase=false`.
+  - **PRENDIDO = "Fiscal"** (`usar_sueldo_real === false`) → `usaFiscalBase=true`.
+  - El cálculo lee `sd_real`/`sd_fiscal` **en vivo**, así que si re-modifican sueldos no hay que tocar código.
+
+- **MARLIN con switch REAL (apagado) → modelo idéntico a PML:**
+  - Sueldo base (asistencia, séptimo, HE, HE retro, retardos) = **REAL** (`dBase = dDR`).
+  - **Neto = percepciones(real) − deducciones**. Vales, previsión, ISR e IMSS **NO entran al neto**;
+    van en el bloque **"Parte fiscal (no afecta el neto)"**.
+  - **Depósito fiscal** = `sueldoFiscalPeriodo` (fiscal del periodo **COMPLETO**, las faltas no lo bajan)
+    `+ vales + previsión − TODAS las deducciones (incluye ISR e IMSS)`.
+  - **Distribución:** Depósito a depositar · Vales · Depósito a banco (=depósito−vales) · Efectivo
+    (=neto−depósito). La **diferencia real−fiscal cae al EFECTIVO** (igual que PML).
+  - Validado con **Verónica Alejandra Rivera Godoy** (real 500/día, 6 días, jornada 6+1, Alta IMSS):
+    neto **3,168.64** · dep. fiscal **3,085.07** · vales 319.51 · banco **2,765.56** · efectivo **83.57**.
+
+- **MARLIN con switch FISCAL (prendido) → modelo Marlin:**
+  - Sueldo base = **FISCAL** (`dBase = dDF`).
+  - **Neto = percepciones + vales + previsión − deducciones − ISR − IMSS** (TODO entra al neto).
+  - **Depósito** por **días trabajados en fiscal** (`asistMontoFiscal + septimoFiscal`, baja con faltas)
+    `+ vales + previsión − todas las deducciones`.
+  - **Alta IMSS** solo cambia la distribución: **ON** → "Depósito (banco+vales)" + Efectivo;
+    **OFF** → **todo efectivo** (vales/previsión/ISR/IMSS **siguen** en el neto, solo no se parte el pago).
+
+- **Detalles clave que se rompieron y NO repetir:**
+  - El **depósito al banco SIEMPRE va sobre el FISCAL** (`asistMontoFiscal`/`septimoFiscal` o
+    `sueldoFiscalPeriodo`), nunca sobre el real. La diferencia real−fiscal es el efectivo.
+  - **vales/previsión** se calculan cuando `conVales = usaFiscalBase || altaImss` (Marlin Fiscal
+    siempre; PML/Real solo con Alta IMSS). `valesPago = altaImss ? vales : 0` (vales en tarjeta;
+    0 si van en efectivo) — usar `valesPago` para totales de vales y export, no `vales`.
+  - **Tab Fiscal:** solo **Marlin Fiscal** sin Alta IMSS muestra inputs **ISR/IMSS** editables
+    (gate `c.usaFiscalBase`); PML/Real sin Alta IMSS → "Sin Alta IMSS — todo a efectivo".
+  - Flags devueltos por `calcularNomina`: `usaFiscalBase` (manda el modelo), `modeloMarlin`
+    (= `usaFiscalBase && altaImss`, solo para partir el depósito), `esMarlin`, `asistMontoFiscal`,
+    `septimoFiscal`, `valesPago`.
+- **Otros ajustes Marlin de esta tanda:** código **INC = Incapacidad** (resta, trato falta) + colores
+  de incidencias más vívidos; **jornada por empleado 5+2 / 6+1** (`empleados.dias_trabajo`, descanso
+  2/5 vs 1/6); **séptimo (dom.) editable como FACTOR** en Tab Fiscal (`nominas.septimo_corregido`
+  guarda el factor en días); vales/previsión prorrateados `(base/7)×(díasAsist+factor séptimo)`, tope 1;
+  **préstamos con descuento fijo** capturado al alta y bloqueado (`prestamos.descuento_nomina`,
+  descuenta `min(descuento, saldo)`); **comedor Marlin jue→jue** (un día más que PML, vie→jue).
+- **Pendiente (sin subir aún a GitHub):** TODO el bloque Marlin de arriba está **solo en local**;
+  falta commit+push a `main` (auto-deploy Vercel) cuando el usuario confirme.
+
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->

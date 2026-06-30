@@ -27,7 +27,9 @@ export function TabFiscal({ calcData, nominas, canEdit }: any) {
   // Depósito fiscal calculado EN VIVO (usa ISR/IMSS actuales de la tabla).
   const depFiscalDe = (e: any, c: any) => {
     const isr = getNum(e.id, 'isr'), imss = getNum(e.id, 'imss');
-    return c.sueldoFiscalPeriodo + c.vales + c.prevSocial - (c.totalDed + isr + imss);
+    // Marlin FISCAL: depósito por días trabajados en fiscal (asistencia+séptimo fiscales); PML/Real, fiscal completo.
+    const sueldoDep = c.usaFiscalBase ? (c.asistMontoFiscal + c.septimoFiscal) : c.sueldoFiscalPeriodo;
+    return sueldoDep + c.vales + c.prevSocial - (c.totalDed + isr + imss);
   };
   // Depósito corregido mostrado: el capturado, o el fiscal por defecto.
   const corregidoDe = (e: any, c: any) => {
@@ -38,6 +40,15 @@ export function TabFiscal({ calcData, nominas, canEdit }: any) {
   const esCorregido = (e: any) => {
     const raw = getRaw(e.id, 'deposito_corregido');
     return raw !== null && raw !== undefined && raw !== '';
+  };
+  // Séptimo (proporcional del domingo): se captura el FACTOR (días). El corregido a mano, o el calculado.
+  const esSeptimoCorr = (e: any) => {
+    const raw = getRaw(e.id, 'septimo_corregido');
+    return raw !== null && raw !== undefined && raw !== '';
+  };
+  const septimoFactorDe = (e: any, c: any) => {
+    const raw = getRaw(e.id, 'septimo_corregido');
+    return esSeptimoCorr(e) ? (parseFloat(String(raw)) || 0) : (c.septimoDiasCalc || 0);
   };
 
   const rows = useMemo(() => {
@@ -51,7 +62,7 @@ export function TabFiscal({ calcData, nominas, canEdit }: any) {
   const totISR = calcData.reduce((s: number, d: any) => s + getNum(d.empleado.id, 'isr'), 0);
   const totIMSS = calcData.reduce((s: number, d: any) => s + getNum(d.empleado.id, 'imss'), 0);
   const totDep = calcData.reduce((s: number, d: any) => s + (d.calc.altaImss ? corregidoDe(d.empleado, d.calc) : 0), 0);
-  const totVales = calcData.reduce((s: number, d: any) => s + (d.calc.vales || 0), 0);
+  const totVales = calcData.reduce((s: number, d: any) => s + (d.calc.valesPago || 0), 0);
 
   return (
     <div>
@@ -73,6 +84,7 @@ export function TabFiscal({ calcData, nominas, canEdit }: any) {
                 ID NOMEX <span style={{ opacity: sortNomex ? 1 : 0.25 }}>{sortNomex === 1 ? '▲' : sortNomex === -1 ? '▼' : '↕'}</span>
               </th>
               <th>Empleado</th>
+              <th className="right" title="Factor del séptimo día (días). Monto = sueldo diario × factor. Editable.">Séptimo (dom.) · factor</th>
               <th className="right">Sueldo fiscal</th><th className="right">ISR</th><th className="right">IMSS</th>
               <th className="right">Dep. fiscal</th><th className="right">Dep. corregido</th><th className="right">Vales</th><th className="right">Dep. banco</th>
             </tr>
@@ -85,12 +97,41 @@ export function TabFiscal({ calcData, nominas, canEdit }: any) {
               const depFiscal = depFiscalDe(e, c);
               const corregido = corregidoDe(e, c);
               const tiene = esCorregido(e);
+              const septimoFactor = septimoFactorDe(e, c);
+              const septimoCorr = esSeptimoCorr(e);
+              const septimoMonto = (c.dBase || 0) * septimoFactor;
               return (
-                <tr key={e.id} className={sinImss ? 'row-inactive' : ''}>
+                <tr key={e.id} className={sinImss && !c.usaFiscalBase ? 'row-inactive' : ''}>
                   <td className="mono fw-600">{nomexLabel(e)}</td>
                   <td><div className="fw-600">{e.nombre}</div><div className="text-xs muted">{e.area}</div></td>
+                  <td className="right">
+                    {canEdit ? (
+                      <div className="hstack" style={{ gap: 4, justifyContent: 'flex-end' }}>
+                        <input
+                          className="field-input mono"
+                          type="number"
+                          step="0.0001"
+                          min="0"
+                          value={septimoCorr ? (getRaw(e.id, 'septimo_corregido') ?? '') : Math.round(septimoFactor * 10000) / 10000}
+                          onChange={(ev) => update(e.id, 'septimo_corregido', ev.target.value)}
+                          title={`Factor del séptimo (días). Monto = ${fmt(septimoMonto)}${septimoCorr ? ' · corregido' : ' · proporcional calculado'}`}
+                          style={{ width: 84, textAlign: 'right', fontWeight: septimoCorr ? 700 : 400, color: septimoCorr ? 'var(--red-500)' : undefined, borderColor: septimoCorr ? 'var(--red-500)' : undefined, background: septimoCorr ? '#FEF2F2' : undefined }}
+                        />
+                        {septimoCorr && <button className="btn btn-ghost btn-sm" title="Quitar corrección (volver al proporcional)" onClick={() => update(e.id, 'septimo_corregido', null)} style={{ padding: '2px 6px' }}>↺</button>}
+                      </div>
+                    ) : <span className="mono" title={`Monto = ${fmt(septimoMonto)}`} style={{ color: septimoCorr ? 'var(--red-500)' : undefined, fontWeight: septimoCorr ? 700 : 400 }}>{String(Math.round(septimoFactor * 10000) / 10000)}</span>}
+                  </td>
                   {sinImss ? (
-                    <td className="center muted" colSpan={5}>Sin Alta IMSS — todo a efectivo</td>
+                    c.usaFiscalBase ? (
+                      <>
+                        <td className="right mono muted">—</td>
+                        <td className="right">{canEdit ? <input className="field-input mono" type="number" value={isr || ''} placeholder="0" onChange={(ev) => update(e.id, 'isr', ev.target.value)} style={{ width: 90, textAlign: 'right' }} /> : <span className="mono">{fmt(isr)}</span>}</td>
+                        <td className="right">{canEdit ? <input className="field-input mono" type="number" value={imss || ''} placeholder="0" onChange={(ev) => update(e.id, 'imss', ev.target.value)} style={{ width: 90, textAlign: 'right' }} /> : <span className="mono">{fmt(imss)}</span>}</td>
+                        <td className="center muted" colSpan={2}>Todo a efectivo</td>
+                      </>
+                    ) : (
+                      <td className="center muted" colSpan={5}>Sin Alta IMSS — todo a efectivo</td>
+                    )
                   ) : (
                     <>
                       <td className="right mono orange">{fmt(c.sueldoFiscalPeriodo)}</td>

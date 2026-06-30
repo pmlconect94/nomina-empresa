@@ -126,7 +126,8 @@ export function NominaDetallePage() {
       const primera = new Date(fp); primera.setDate(fp.getDate() + espera);
       return fechaIni >= primera;
     });
-    activos.forEach((p) => { const d = p.monto * 0.1; dMap[p.empleado_id] = (dMap[p.empleado_id] || 0) + Math.min(d, p.saldo); });
+    // Descuento por nómina = monto fijo definido en el préstamo (fallback 10% para los viejos); tope = saldo.
+    activos.forEach((p) => { const d = p.descuento_nomina != null ? Number(p.descuento_nomina) : p.monto * 0.1; dMap[p.empleado_id] = (dMap[p.empleado_id] || 0) + Math.min(d, p.saldo); });
     setPrestamosDesc(dMap); setPrestamosData(activos);
     setLoading(false);
   }, [semanaId]);
@@ -137,7 +138,7 @@ export function NominaDetallePage() {
     if (!confirm('¿Guardar y cerrar la nómina? Ya no podrá editarse.')) return;
     const ops: any[] = [];
     prestamosData.forEach((p) => {
-      const bruto = p.monto * 0.1;
+      const bruto = p.descuento_nomina != null ? Number(p.descuento_nomina) : p.monto * 0.1;
       const real = parseFloat(Math.min(bruto, p.saldo).toFixed(2));
       if (real <= 0) return;
       const nuevo = parseFloat((p.saldo - real).toFixed(2));

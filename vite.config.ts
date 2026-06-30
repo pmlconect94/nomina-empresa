@@ -10,7 +10,8 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
-    open: true,
+    // Usa el PORT asignado (preview/CI); si no hay, 5173 para `npm run dev` manual.
+    port: process.env.PORT ? Number(process.env.PORT) : 5173,
+    open: false,
   },
 });

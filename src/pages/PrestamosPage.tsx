@@ -4,8 +4,10 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useEmpresa } from '@/lib/empresas';
 import { fmt, fmtFecha, fmtFechaHora, fmtPeriodo, MESES } from '@/lib/format';
-import { descuentoPrestamoMonto } from '@/lib/calc';
 import { Icon } from '@/components/Icon';
+
+// Descuento por nómina del préstamo: el monto definido; para préstamos viejos sin captura, 10% del monto.
+const descLoan = (p: any) => (p?.descuento_nomina != null ? Number(p.descuento_nomina) : Math.round((p?.monto || 0) * 0.1 * 100) / 100);
 import { PageEnter } from '@/components/motion';
 
 export function PrestamosPage() {
@@ -15,7 +17,7 @@ export function PrestamosPage() {
   const [prestamos, setPrestamos] = useState<any[]>([]);
   const [empleados, setEmpleados] = useState<any[]>([]);
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState<any>({ empleado_id: '', monto: '', fecha_prestamo: '', tipo: 'semanal' });
+  const [form, setForm] = useState<any>({ empleado_id: '', monto: '', desc_nomina: '', fecha_prestamo: '', tipo: 'semanal' });
   const [abonoP, setAbonoP] = useState<any>(null); // préstamo al que se le abona fuera de nómina
   const [abonoMonto, setAbonoMonto] = useState('');
   const [detalleP, setDetalleP] = useState<any>(null); // préstamo cuyo desglose de pagos se ve
@@ -38,13 +40,26 @@ export function PrestamosPage() {
   async function fetchE() { const { data } = await supabase.from('empleados').select('id,nombre,id_banco').eq('activo', true).eq('empresa', empresa).order('id_banco', { ascending: true, nullsFirst: false }); setEmpleados(data || []); }
 
   async function guardar() {
-    if (!form.empleado_id || !form.monto || !form.fecha_prestamo) return;
     const monto = parseFloat(form.monto);
-    await supabase.from('prestamos').insert({ empleado_id: form.empleado_id, monto, saldo: monto, fecha_prestamo: form.fecha_prestamo, tipo: form.tipo, activo: true });
+    const descN = parseFloat(form.desc_nomina);
+    if (!form.empleado_id || !(monto > 0) || !form.fecha_prestamo) return;
+    if (!(descN > 0)) { toast.error('Captura el descuento por nómina'); return; }
+    await supabase.from('prestamos').insert({ empleado_id: form.empleado_id, monto, saldo: monto, descuento_nomina: descN, fecha_prestamo: form.fecha_prestamo, tipo: form.tipo, activo: true });
     toast.success('Préstamo registrado');
-    setModal(false); setForm({ empleado_id: '', monto: '', fecha_prestamo: '', tipo: 'semanal' }); fetchP();
+    setModal(false); setForm({ empleado_id: '', monto: '', desc_nomina: '', fecha_prestamo: '', tipo: 'semanal' }); fetchP();
   }
   async function archivar(id: string) { if (!confirm('¿Archivar este préstamo?')) return; await supabase.from('prestamos').update({ activo: false }).eq('id', id); fetchP(); }
+
+  // Editar el descuento por nómina de un préstamo existente.
+  async function setDescuento(p: any, valor: string) {
+    const n = parseFloat(valor);
+    if (!(n > 0)) { toast.error('El descuento debe ser mayor a 0'); fetchP(); return; }
+    if (n === descLoan(p)) return;
+    setPrestamos((prev) => prev.map((x) => x.id === p.id ? { ...x, descuento_nomina: n } : x));
+    const { error } = await supabase.from('prestamos').update({ descuento_nomina: n }).eq('id', p.id);
+    if (error) { toast.error(error.message); fetchP(); return; }
+    toast.success('Descuento actualizado');
+  }
 
   // Abono fuera de nómina: reduce el saldo. El descuento por nómina NO cambia (sigue 10% del monto).
   async function abonar() {
@@ -67,8 +82,8 @@ export function PrestamosPage() {
   const activos = prestamos.filter((p) => p.activo !== false);
   const totPrestado = activos.reduce((s, p) => s + p.monto, 0);
   const totPend = activos.reduce((s, p) => s + p.saldo, 0);
-  const desc = descuentoPrestamoMonto(parseFloat(form.monto) || 0, form.tipo);
-  const noms = form.monto ? Math.ceil(parseFloat(form.monto) / desc) : 0;
+  const desc = parseFloat(form.desc_nomina) || 0;
+  const noms = (form.monto && desc > 0) ? Math.ceil(parseFloat(form.monto) / desc) : 0;
 
   return (
     <PageEnter>
@@ -87,17 +102,21 @@ export function PrestamosPage() {
           <tbody>
             {prestamos.length === 0 && <tr><td colSpan={9}><div className="empty"><div className="empty-title">Sin préstamos</div></div></td></tr>}
             {prestamos.map((p) => {
-              const d = descuentoPrestamoMonto(p.monto, p.tipo);
+              const d = descLoan(p);
               const pct = Math.round(((p.monto - p.saldo) / p.monto) * 100);
               const liq = p.saldo === 0, arch = p.activo === false;
               return (
                 <tr key={p.id} className={`clickable ${arch ? 'row-inactive' : ''}`} style={{ cursor: 'pointer' }} onClick={() => verDetalle(p)} title="Ver desglose de pagos">
                   <td><div className="fw-600">{p.empleado?.nombre || '—'}</div><div className="text-xs muted">{p.empleado?.area || ''}</div></td>
                   <td className="muted">{fmtFecha(p.fecha_prestamo)}</td>
-                  <td><span className="badge badge-gray">{p.tipo === 'semanal' ? 'Semanal 10%' : 'Quincenal 10%'}</span></td>
+                  <td><span className="badge badge-gray">{p.tipo === 'semanal' ? 'Semanal' : 'Quincenal'}</span></td>
                   <td className="right mono">{fmt(p.monto)}</td>
                   <td className={`right mono ${liq ? 'pos' : 'orange'}`}>{liq ? 'Liquidado' : fmt(p.saldo)}</td>
-                  <td className="right mono blue">{liq ? '—' : fmt(d)}</td>
+                  <td className="right">
+                    {canEdit && !arch && !liq && p.descuento_nomina == null
+                      ? <input className="field-input mono" type="number" min="0" step="0.01" defaultValue={d} title="Captura el monto a descontar por nómina" placeholder="0.00" onClick={(e) => e.stopPropagation()} onBlur={(e) => setDescuento(p, e.target.value)} style={{ width: 100, textAlign: 'right', padding: '4px 6px' }} />
+                      : <span className="mono blue" title="Capturado al alta (no editable)">{liq ? '—' : fmt(d)}</span>}
+                  </td>
                   <td style={{ minWidth: 120 }}><div className="text-xs muted" style={{ marginBottom: 3 }}>{pct}%</div><div className="progress"><div className="progress-fill" style={{ width: pct + '%' }} /></div></td>
                   <td><span className={`badge ${arch ? 'badge-gray' : liq ? 'badge-green' : 'badge-blue'}`}>{arch ? 'Archivado' : liq ? 'Liquidado' : 'Activo'}</span></td>
                   {canEdit && <td><div className="hstack" style={{ gap: 4, justifyContent: 'flex-end' }}>
@@ -176,13 +195,14 @@ export function PrestamosPage() {
                 <div><label className="field-label">Empleado</label><select className="field-input" value={form.empleado_id} onChange={(e) => setForm((f: any) => ({ ...f, empleado_id: e.target.value }))}><option value="">— Selecciona —</option>{empleados.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}</select></div>
               </div>
               <div className="form-grid form-grid-2" style={{ marginTop: 14 }}>
-                <div><label className="field-label">Monto</label><input className="field-input mono" type="number" value={form.monto} onChange={(e) => setForm((f: any) => ({ ...f, monto: e.target.value }))} /></div>
+                <div><label className="field-label">Monto del préstamo</label><input className="field-input mono" type="number" value={form.monto} onChange={(e) => setForm((f: any) => ({ ...f, monto: e.target.value }))} /></div>
+                <div><label className="field-label">Descuento por nómina</label><input className="field-input mono" type="number" placeholder="Cantidad a descontar" value={form.desc_nomina} onChange={(e) => setForm((f: any) => ({ ...f, desc_nomina: e.target.value }))} /></div>
+              </div>
+              <div className="form-grid form-grid-2" style={{ marginTop: 14 }}>
                 <div><label className="field-label">Fecha del préstamo</label><input className="field-input" type="date" value={form.fecha_prestamo} onChange={(e) => setForm((f: any) => ({ ...f, fecha_prestamo: e.target.value }))} /></div>
+                <div><label className="field-label">Tipo</label><select className="field-input" value={form.tipo} onChange={(e) => setForm((f: any) => ({ ...f, tipo: e.target.value }))}><option value="semanal">Semanal</option><option value="quincenal">Quincenal</option></select></div>
               </div>
-              <div className="form-grid" style={{ marginTop: 14 }}>
-                <div><label className="field-label">Tipo de descuento</label><select className="field-input" value={form.tipo} onChange={(e) => setForm((f: any) => ({ ...f, tipo: e.target.value }))}><option value="semanal">Semanal (10%)</option><option value="quincenal">Quincenal (10%)</option></select></div>
-              </div>
-              {form.monto > 0 && form.fecha_prestamo && (
+              {form.monto > 0 && desc > 0 && form.fecha_prestamo && (
                 <div style={{ marginTop: 14, background: 'var(--ink-50)', borderRadius: 'var(--r-md)', padding: 12 }} className="text-sm">
                   <div className="hstack" style={{ justifyContent: 'space-between' }}><span className="muted">Descuento por nómina</span><span className="mono fw-600">{fmt(desc)}</span></div>
                   <div className="hstack" style={{ justifyContent: 'space-between' }}><span className="muted">Nóminas para liquidar</span><span className="fw-600">{noms}</span></div>
@@ -190,7 +210,7 @@ export function PrestamosPage() {
                 </div>
               )}
             </div>
-            <div className="modal-footer"><button className="btn btn-outline" onClick={() => setModal(false)}>Cancelar</button><button className="btn btn-primary" onClick={guardar} disabled={!form.empleado_id || !form.monto || !form.fecha_prestamo}>Guardar</button></div>
+            <div className="modal-footer"><button className="btn btn-outline" onClick={() => setModal(false)}>Cancelar</button><button className="btn btn-primary" onClick={guardar} disabled={!form.empleado_id || !(parseFloat(form.monto) > 0) || !(parseFloat(form.desc_nomina) > 0) || !form.fecha_prestamo}>Guardar</button></div>
           </div>
         </div>
       )}

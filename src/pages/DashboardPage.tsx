@@ -169,6 +169,7 @@ export function DashboardPage() {
     return {
       dias, retTot, teTot,
       faltas: empList(porEmp['F']),
+      inc: empList(porEmp['INC']),
       vac: empList(porEmp['V']),
       pcg: empList(porEmp['PCG']),
       psg: empList(porEmp['PSG']),
@@ -184,6 +185,7 @@ export function DashboardPage() {
   // Tiles de incidencias (clic = despliega quién).
   const tiles = [
     { key: 'F', label: 'Faltas', val: data.dias['F'] || 0, unit: 'días', color: 'var(--red-500)', list: data.faltas, lu: '' },
+    { key: 'INC', label: 'Incapacidades', val: data.dias['INC'] || 0, unit: 'días', color: '#5FC9DC', list: data.inc, lu: '' },
     { key: 'RET', label: 'Retardos', val: data.retTot, unit: 'h', color: 'var(--amber-500)', list: data.retList, lu: 'h' },
     { key: 'TE', label: 'Horas extra', val: data.teTot, unit: 'h', color: 'var(--blue-500)', list: data.teList, lu: 'h' },
     { key: 'V', label: 'Vacaciones', val: data.dias['V'] || 0, unit: 'días', color: 'var(--green-500)', list: data.vac, lu: '' },
