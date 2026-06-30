@@ -119,7 +119,11 @@ export function NominaDetallePage() {
 
     const fechaIni = new Date(sem.fecha_inicio + 'T12:00:00');
     const dMap: any = {};
+    // SOLO préstamos de empleados que están en ESTA nómina (misma empresa + esquema). Si no se
+    // filtra, se mezclan préstamos de las dos empresas y al guardar se descuentan saldos ajenos.
+    const empIdSet = new Set((empRes.data || []).map((e: any) => e.id));
     const activos = (prestRes.data || []).filter((p) => {
+      if (!empIdSet.has(p.empleado_id)) return false;
       if (p.saldo <= 0) return false;
       const fp = new Date(p.fecha_prestamo + 'T12:00:00');
       const espera = p.tipo === 'semanal' ? 7 : 15;
@@ -138,13 +142,14 @@ export function NominaDetallePage() {
     if (!confirm('¿Guardar y cerrar la nómina? Ya no podrá editarse.')) return;
     const ops: any[] = [];
     prestamosData.forEach((p) => {
+      const nomId = nominas[p.empleado_id]?.id;
+      if (!nomId) return; // empleado no pertenece a esta nómina → NO tocar su saldo (evita descuentos ajenos)
       const bruto = p.descuento_nomina != null ? Number(p.descuento_nomina) : p.monto * 0.1;
       const real = parseFloat(Math.min(bruto, p.saldo).toFixed(2));
       if (real <= 0) return;
       const nuevo = parseFloat((p.saldo - real).toFixed(2));
-      const nomId = nominas[p.empleado_id]?.id;
       ops.push(supabase.from('prestamos').update({ saldo: nuevo, activo: nuevo > 0 }).eq('id', p.id));
-      if (nomId) ops.push(supabase.from('prestamo_descuentos').insert({ prestamo_id: p.id, nomina_id: nomId, semana_id: semana.id, monto_descontado: real, saldo_anterior: p.saldo, saldo_posterior: nuevo }));
+      ops.push(supabase.from('prestamo_descuentos').insert({ prestamo_id: p.id, nomina_id: nomId, semana_id: semana.id, monto_descontado: real, saldo_anterior: p.saldo, saldo_posterior: nuevo }));
     });
     await Promise.all(ops);
     await supabase.from('semanas').update({ status: 'timbrada', timbrada_at: new Date().toISOString() }).eq('id', semana.id);
