@@ -51,6 +51,9 @@ export function NominaDetallePage() {
   const [loading, setLoading] = useState(true);
   const [unlock, setUnlock] = useState(false);
   const [pin, setPin] = useState('');
+  const [, setCalcTick] = useState(0);                                  // fuerza recálculo (Fiscal reactivo)
+  const [omitidos, setOmitidos] = useState<Set<string>>(new Set());     // préstamo_ids con descuento omitido esta semana
+  const recomputar = () => setCalcTick((t) => t + 1);
 
   const timbrada = semana?.status === 'timbrada';
 
@@ -61,7 +64,7 @@ export function NominaDetallePage() {
     setSemana(sem);
 
     const esquema = sem.tipo === 'semanal' ? 'Semanal' : 'Quincenal';
-    const [empRes, nomRes, viajesRes, prestRes, descRes, bonoRes, retroRes, bpRes, bxRes] = await Promise.all([
+    const [empRes, nomRes, viajesRes, prestRes, descRes, bonoRes, retroRes, bpRes, bxRes, omitRes] = await Promise.all([
       supabase.from('empleados').select('*').eq('activo', true).eq('esquema_pago', esquema).eq('empresa', sem.empresa).order('id_banco', { ascending: true, nullsFirst: false }),
       supabase.from('nominas').select('*').eq('semana_id', sem.id),
       supabase.from('viajes').select('*').eq('semana_id', sem.id),
@@ -71,6 +74,7 @@ export function NominaDetallePage() {
       supabase.from('nomina_retroactivo').select('empleado_id,horas').eq('semana_id', sem.id),
       supabase.from('bono_permanente').select('id,empleado_id,monto').eq('activo', true),
       supabase.from('bono_permanente_excluido').select('bono_permanente_id').eq('semana_id', sem.id),
+      supabase.from('prestamo_omitir').select('prestamo_id').eq('semana_id', sem.id),
     ]);
     setEmpleados(empRes.data || []);
 
@@ -130,18 +134,47 @@ export function NominaDetallePage() {
       const primera = new Date(fp); primera.setDate(fp.getDate() + espera);
       return fechaIni >= primera;
     });
+    // Préstamos con el descuento OMITIDO esta semana (switch en la pestaña Préstamos).
+    const omitSet = new Set((omitRes.data || []).map((o: any) => o.prestamo_id));
+    setOmitidos(omitSet);
     // Descuento por nómina = monto fijo definido en el préstamo (fallback 10% para los viejos); tope = saldo.
-    activos.forEach((p) => { const d = p.descuento_nomina != null ? Number(p.descuento_nomina) : p.monto * 0.1; dMap[p.empleado_id] = (dMap[p.empleado_id] || 0) + Math.min(d, p.saldo); });
+    // Si el préstamo está omitido esta semana → 0 (esta semana se salta, no se descuenta).
+    activos.forEach((p) => {
+      if (omitSet.has(p.id)) return;
+      const d = p.descuento_nomina != null ? Number(p.descuento_nomina) : p.monto * 0.1;
+      dMap[p.empleado_id] = (dMap[p.empleado_id] || 0) + Math.min(d, p.saldo);
+    });
     setPrestamosDesc(dMap); setPrestamosData(activos);
     setLoading(false);
   }, [semanaId]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  // Switch por préstamo: omitir (o reactivar) el descuento SOLO en esta semana.
+  async function toggleOmitir(prestamoId: string) {
+    const isOm = omitidos.has(prestamoId);
+    const next = new Set(omitidos);
+    if (isOm) next.delete(prestamoId); else next.add(prestamoId);
+    setOmitidos(next);
+    // Recalcula los descuentos con el nuevo set (sin recargar todo).
+    const dMap: Record<string, number> = {};
+    prestamosData.forEach((p) => {
+      if (next.has(p.id)) return;
+      const d = p.descuento_nomina != null ? Number(p.descuento_nomina) : p.monto * 0.1;
+      dMap[p.empleado_id] = (dMap[p.empleado_id] || 0) + Math.min(d, p.saldo);
+    });
+    setPrestamosDesc(dMap);
+    try {
+      if (isOm) await supabase.from('prestamo_omitir').delete().eq('semana_id', semana.id).eq('prestamo_id', prestamoId);
+      else await supabase.from('prestamo_omitir').insert({ semana_id: semana.id, prestamo_id: prestamoId });
+    } catch (err) { console.error(err); }
+  }
+
   async function guardar() {
     if (!confirm('¿Guardar y cerrar la nómina? Ya no podrá editarse.')) return;
     const ops: any[] = [];
     prestamosData.forEach((p) => {
+      if (omitidos.has(p.id)) return; // descuento omitido esta semana → no se toca el saldo
       const nomId = nominas[p.empleado_id]?.id;
       if (!nomId) return; // empleado no pertenece a esta nómina → NO tocar su saldo (evita descuentos ajenos)
       const bruto = p.descuento_nomina != null ? Number(p.descuento_nomina) : p.monto * 0.1;
@@ -207,8 +240,8 @@ export function NominaDetallePage() {
       {tab === 'descproducto' && <TabDescuentoProducto semana={semana} nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} onChanged={cargar} />}
       {tab === 'bonos' && <TabBonos semana={semana} nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} onChanged={cargar} />}
       {tab === 'retroactivos' && <TabRetroactivos semana={semana} nominas={nominas} empleados={empleados} canEdit={canEdit && !timbrada} onChanged={cargar} />}
-      {tab === 'prestamos' && <TabPrestamosResumen prestamos={prestamosData} descMap={prestamosDesc} semana={semana} />}
-      {tab === 'fiscal' && <TabFiscal calcData={calcData} nominas={nominas} semana={semana} canEdit={canEdit && !timbrada} />}
+      {tab === 'prestamos' && <TabPrestamosResumen prestamos={prestamosData} descMap={prestamosDesc} semana={semana} omitidos={omitidos} canEdit={canEdit && !timbrada} onToggleOmitir={toggleOmitir} />}
+      {tab === 'fiscal' && <TabFiscal calcData={calcData} nominas={nominas} semana={semana} canEdit={canEdit && !timbrada} onChanged={recomputar} />}
 
       {unlock && (
         <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && setUnlock(false)}>

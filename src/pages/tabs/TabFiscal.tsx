@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fmt, nomexLabel } from '@/lib/format';
 
-export function TabFiscal({ calcData, nominas, canEdit }: any) {
+export function TabFiscal({ calcData, nominas, canEdit, onChanged }: any) {
   const [vals, setVals] = useState<Record<string, any>>({});
   const [sortNomex, setSortNomex] = useState<1 | -1 | 0>(1); // 1 = ID NOMEX ascendente por defecto
 
@@ -20,6 +20,7 @@ export function TabFiscal({ calcData, nominas, canEdit }: any) {
     const nom = nominas[empId];
     if (nom) {
       nom[campo] = n; // sincroniza el objeto en memoria (sobrevive al cambiar de pestaña)
+      onChanged?.(); // fuerza recálculo del padre → vales/depósito se actualizan al instante
       await supabase.from('nominas').update({ [campo]: n }).eq('id', nom.id);
     }
   }

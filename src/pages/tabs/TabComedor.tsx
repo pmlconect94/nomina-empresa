@@ -7,7 +7,7 @@ const DIAS_C = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MESES_C = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 export function TabComedor({ semana, nominas, empleados, canEdit }: any) {
-  const [marcados, setMarcados] = useState<Set<string>>(new Set()); // "nomId|fecha"
+  const [marcados, setMarcados] = useState<Map<string, number>>(new Map()); // "nomId|fecha" -> cantidad (1 o 2)
   const [loading, setLoading] = useState(true);
 
   // Días hábiles (lunes a viernes) del comedor.
@@ -43,48 +43,68 @@ export function TabComedor({ semana, nominas, empleados, canEdit }: any) {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data } = await supabase.from('comedor_registro').select('nomina_id,fecha').eq('semana_id', semana.id);
-      const s = new Set<string>();
-      (data || []).forEach((r: any) => s.add(`${r.nomina_id}|${r.fecha}`));
+      const { data } = await supabase.from('comedor_registro').select('nomina_id,fecha,cantidad').eq('semana_id', semana.id);
+      const s = new Map<string, number>();
+      (data || []).forEach((r: any) => s.set(`${r.nomina_id}|${r.fecha}`, r.cantidad || 1));
       setMarcados(s);
       setLoading(false);
     })();
   }, [semana.id]);
 
-  function countNom(nomId: string, set: Set<string>) {
+  // Total de COMIDAS del empleado (suma cantidades; un día doble cuenta 2).
+  function countNom(nomId: string, map: Map<string, number>) {
     let n = 0;
-    set.forEach((k) => {
+    map.forEach((cant, k) => {
       const [id, fecha] = k.split('|');
-      if (id === nomId && fechasValidas.has(fecha)) n++;
+      if (id === nomId && fechasValidas.has(fecha)) n += cant;
     });
     return n;
   }
 
+  async function syncMonto(empId: string, nomId: string, next: Map<string, number>) {
+    const monto = countNom(nomId, next) * COSTO;
+    if (nominas[empId]) nominas[empId].comedor = monto;
+    await supabase.from('nominas').update({ comedor: monto }).eq('id', nomId);
+  }
+
+  // Marca / desmarca el día (cantidad 1). Desmarcar borra el registro.
   async function toggle(empId: string, nomId: string, fecha: string) {
     if (!canEdit) return;
     const key = `${nomId}|${fecha}`;
-    const next = new Set(marcados);
+    const next = new Map(marcados);
     const checked = next.has(key);
-    if (checked) next.delete(key); else next.add(key);
+    if (checked) next.delete(key); else next.set(key, 1);
     setMarcados(next);
-
     try {
       if (checked) await supabase.from('comedor_registro').delete().eq('nomina_id', nomId).eq('fecha', fecha);
-      else await supabase.from('comedor_registro').insert({ semana_id: semana.id, nomina_id: nomId, empleado_id: empId, fecha });
-      // Sincroniza el monto de comedor en la nómina (para el cálculo).
-      const monto = countNom(nomId, next) * COSTO;
-      if (nominas[empId]) nominas[empId].comedor = monto;
-      await supabase.from('nominas').update({ comedor: monto }).eq('id', nomId);
+      else await supabase.from('comedor_registro').insert({ semana_id: semana.id, nomina_id: nomId, empleado_id: empId, fecha, cantidad: 1 });
+      await syncMonto(empId, nomId, next);
+    } catch (err) { console.error(err); }
+  }
+
+  // Comida doble: pone la cantidad del día en 2 (o de vuelta en 1). Solo si el día ya está marcado.
+  async function setDoble(empId: string, nomId: string, fecha: string, doble: boolean) {
+    if (!canEdit) return;
+    const key = `${nomId}|${fecha}`;
+    if (!marcados.has(key)) return;
+    const cant = doble ? 2 : 1;
+    const next = new Map(marcados);
+    next.set(key, cant);
+    setMarcados(next);
+    try {
+      await supabase.from('comedor_registro').update({ cantidad: cant }).eq('nomina_id', nomId).eq('fecha', fecha);
+      await syncMonto(empId, nomId, next);
     } catch (err) { console.error(err); }
   }
 
   let totalDias = 0;
-  marcados.forEach((k) => { if (fechasValidas.has(k.split('|')[1])) totalDias++; });
+  marcados.forEach((cant, k) => { if (fechasValidas.has(k.split('|')[1])) totalDias += cant; });
 
   return (
     <div>
       <p className="muted text-sm" style={{ marginTop: 0 }}>
         Marca los días que cada empleado usó el comedor (solo lunes a viernes). Costo por día: <strong>{fmt(COSTO)}</strong>. Queda registrado por día para el reporte mensual.
+        Si un día comió <strong>dos veces</strong>, marca el día y pulsa el pequeño <strong>×2</strong>.
       </p>
       {loading ? <div className="empty"><span className="spinner" /></div> : (
         <div className="card tbl-freeze">
@@ -97,7 +117,7 @@ export function TabComedor({ semana, nominas, empleados, canEdit }: any) {
                     {DIAS_C[d.getDay()]}<br /><span className="muted">{d.getDate()} {MESES_C[d.getMonth()]}</span>
                   </th>
                 ))}
-                <th className="right">Días</th>
+                <th className="right">Comidas</th>
                 <th className="right">Monto</th>
               </tr>
             </thead>
@@ -111,10 +131,21 @@ export function TabComedor({ semana, nominas, empleados, canEdit }: any) {
                     <td><div className="fw-600">{emp.nombre}</div><div className="text-xs muted">{emp.area}</div></td>
                     {dias.map((d, i) => {
                       const fecha = toISO(d);
-                      const on = marcados.has(`${nom.id}|${fecha}`);
+                      const cant = marcados.get(`${nom.id}|${fecha}`) || 0;
+                      const on = cant > 0;
                       return (
                         <td key={i} className="center" style={{ borderLeft: '1px solid var(--ink-100)' }}>
-                          <input type="checkbox" checked={on} disabled={!canEdit} onChange={() => toggle(emp.id, nom.id, fecha)} style={{ width: 17, height: 17, cursor: canEdit ? 'pointer' : 'default', accentColor: 'var(--blue-500)' }} />
+                          <div className="hstack" style={{ gap: 3, justifyContent: 'center', alignItems: 'center' }}>
+                            <input type="checkbox" checked={on} disabled={!canEdit} onChange={() => toggle(emp.id, nom.id, fecha)} style={{ width: 17, height: 17, cursor: canEdit ? 'pointer' : 'default', accentColor: 'var(--blue-500)' }} />
+                            {on && (
+                              <button
+                                onClick={() => setDoble(emp.id, nom.id, fecha, cant !== 2)}
+                                disabled={!canEdit}
+                                title={cant === 2 ? 'Comió 2 veces este día — clic para volver a 1' : 'Marcar comida doble (2 veces este día)'}
+                                style={{ fontSize: 9, lineHeight: 1, padding: '2px 3px', borderRadius: 4, border: '1px solid var(--ink-200)', background: cant === 2 ? 'var(--blue-500)' : 'transparent', color: cant === 2 ? 'white' : 'var(--ink-400)', cursor: canEdit ? 'pointer' : 'default', fontWeight: 700 }}
+                              >×2</button>
+                            )}
+                          </div>
                         </td>
                       );
                     })}
