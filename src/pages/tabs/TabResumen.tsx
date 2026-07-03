@@ -126,7 +126,10 @@ function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
 
 export function TabResumen({ calcData, semana }: { calcData: any[]; semana: any }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({ key: 'id_banco', dir: 1 });
-  const [detalle, setDetalle] = useState<any>(null);
+  const [detalleId, setDetalleId] = useState<string | null>(null);
+  // El recibo se deriva del cálculo EN VIVO (no una foto): si cambia algo (préstamo, séptimo,
+  // ISR/IMSS…) mientras está abierto, se actualiza al instante.
+  const detalle = detalleId != null ? calcData.find((r: any) => r.empleado.id === detalleId) : null;
   const [printMenu, setPrintMenu] = useState(false);
   const acciones: { label: string; run: () => void; disabled?: boolean }[] = [
     { label: '🖨  Incidencias', run: () => imprimirNomina('incidencias', calcData, semana) },
@@ -221,7 +224,7 @@ export function TabResumen({ calcData, semana }: { calcData: any[]; semana: any 
               const e = row.empleado, c = row.calc;
               const descPrestamo = c.totalDed - c.infonavit - c.comedor - c.retardoMonto - (c.descuentoProducto || 0);
               return (
-                <tr key={e.id} className="clickable" style={{ cursor: 'pointer' }} onClick={() => setDetalle(row)} title="Ver tarjeta de nómina">
+                <tr key={e.id} className="clickable" style={{ cursor: 'pointer' }} onClick={() => setDetalleId(e.id)} title="Ver tarjeta de nómina">
                   <td className="mono fw-600">{e.id_banco ?? '—'}</td>
                   <td><div className="fw-600">{e.nombre}</div><div className="text-xs muted">{e.area}</div></td>
                   <td className="right mono">{c.te > 0 ? fmt(c.te) : '—'}</td>
@@ -249,7 +252,7 @@ export function TabResumen({ calcData, semana }: { calcData: any[]; semana: any 
           </tfoot>
         </table>
       </div>
-      {detalle && <ReciboModal d={detalle} onClose={() => setDetalle(null)} />}
+      {detalle && <ReciboModal d={detalle} onClose={() => setDetalleId(null)} />}
     </div>
   );
 }
