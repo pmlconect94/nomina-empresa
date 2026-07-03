@@ -166,8 +166,11 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   const tieneCorregido = nomina?.deposito_corregido !== null && nomina?.deposito_corregido !== undefined && nomina?.deposito_corregido !== '';
   const depositoCorregido = altaImss ? (tieneCorregido ? parseFloat(nomina.deposito_corregido) : depositoFiscal) : 0;
 
-  // Distribución del pago. Sin Alta IMSS: todo en efectivo (sin depósito ni vales).
-  const depositoBanco = altaImss ? (depositoCorregido - vales) : 0;
+  // Si el Depósito corregido se pone en 0 (o menos) a mano → esta nómina va TODO EN EFECTIVO:
+  // no se dispersan vales ni depósito a banco; el neto completo se paga en efectivo.
+  const puroEfectivo = altaImss && tieneCorregido && depositoCorregido <= 0;
+  // Distribución del pago. Sin Alta IMSS o puro efectivo: todo en efectivo (sin depósito ni vales).
+  const depositoBanco = (!altaImss || puroEfectivo) ? 0 : (depositoCorregido - vales);
   const efectivo = altaImss ? (neto - depositoCorregido) : neto;
 
   return {
@@ -179,8 +182,8 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
     totalPerc, totalDed, neto, esMarlin, modeloMarlin,
     depositoFiscal, depositoCorregido, tieneCorregido,
     deposito: depositoCorregido, // compat: "depósito total" = el corregido (o el fiscal por defecto)
-    depositoBanco, efectivo,
-    valesPago: altaImss ? vales : 0, // vales dispersados en tarjeta (0 si todo va en efectivo)
+    depositoBanco, efectivo, puroEfectivo,
+    valesPago: (altaImss && !puroEfectivo) ? vales : 0, // vales dispersados en tarjeta (0 si todo va en efectivo)
     infonavit, comedor, isr, imss,
     comisiones: parseFloat(nomina?.comisiones || 0),
     retroactivos: parseFloat(nomina?.retroactivos || 0),

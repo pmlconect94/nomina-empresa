@@ -235,7 +235,7 @@ function bodyFiscal(calcData: any[], semana: any): string {
     return `<tr>
       <td class="mono">${esc(nomexLabel(e))}</td>
       <td>${esc(e.nombre)}</td>
-      <td class="r mono">${c.vales ? m(c.vales) : '—'}</td>
+      <td class="r mono">${c.valesPago ? m(c.valesPago) : '—'}</td>
       <td class="r mono">${c.depositoBanco ? m(c.depositoBanco) : '—'}</td>
       <td class="r mono">${nd(c.diasA || 0)}</td>
       <td class="r mono">${nd(septDias(c))}</td>
@@ -248,7 +248,7 @@ function bodyFiscal(calcData: any[], semana: any): string {
   };
   const tot = data.reduce((a: any, d: any) => {
     const c = d.calc;
-    a.vales += c.vales || 0; a.banco += c.depositoBanco || 0;
+    a.vales += c.valesPago || 0; a.banco += c.depositoBanco || 0;
     a.asis += c.diasA || 0; a.sept += septDias(c);
     a.inf += c.infonavit || 0; a.com += c.comedor || 0; a.ret += c.retardoMonto || 0; a.prest += c.prestDesc || 0; a.dp += c.descuentoProducto || 0;
     return a;
@@ -289,7 +289,7 @@ export async function imprimirNomina(tipo: TipoImpresion, calcData: any[], seman
 export function exportarValesXLSX(calcData: any[], semana: any) {
   const vales = getEmpresa(semana?.empresa).vales;
   if (!vales) { alert('Esta empresa aún no tiene configurada su cuenta de vales.'); return; }
-  const data = [...calcData].sort(byBanco).filter((d) => d.calc.altaImss && (d.calc.vales || 0) > 0.005);
+  const data = [...calcData].sort(byBanco).filter((d) => (d.calc.valesPago || 0) > 0.005);
   const sinToka = data.filter((d) => d.empleado.id_toka == null || d.empleado.id_toka === '');
   const buenos = data.filter((d) => !(d.empleado.id_toka == null || d.empleado.id_toka === ''));
 
@@ -297,7 +297,7 @@ export function exportarValesXLSX(calcData: any[], semana: any) {
 
   const aoa: (string | number)[][] = [['ID', 'NOMINA', 'MONTO', 'PRODUCTO']];
   buenos.forEach((d) => {
-    const monto = Math.round((d.calc.vales || 0) * 100) / 100;
+    const monto = Math.round((d.calc.valesPago || 0) * 100) / 100;
     aoa.push([Number(vales.idCuenta), d.empleado.id_toka, monto, vales.producto]);
   });
   const periodo = semana ? `${semana.fecha_inicio}_a_${semana.fecha_fin}` : 'nomina';

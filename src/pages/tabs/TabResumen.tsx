@@ -98,8 +98,8 @@ function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
           )}
 
           <div className="form-section-title">Distribución del pago</div>
-          {!c.altaImss ? (
-            <Linea label="Efectivo" value={c.efectivo} bold />
+          {(!c.altaImss || c.puroEfectivo) ? (
+            <Linea label={c.puroEfectivo ? 'Efectivo (todo · dep. corregido en 0)' : 'Efectivo'} value={c.efectivo} bold />
           ) : c.modeloMarlin ? (
             <>
               <Linea label="Depósito (banco + vales)" value={c.depositoCorregido} bold red={c.tieneCorregido} />
@@ -109,7 +109,7 @@ function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
             <>
               {c.tieneCorregido && <Linea label="Depósito corregido (manual)" value={c.depositoCorregido} bold red />}
               {!c.tieneCorregido && <Linea label="Depósito a depositar" value={c.depositoCorregido} bold />}
-              <Linea label="Vales de despensa" value={c.vales} />
+              <Linea label="Vales de despensa" value={c.valesPago} />
               <Linea label="Depósito a banco" value={c.depositoBanco} />
               <Linea label="Efectivo" value={c.efectivo} />
             </>

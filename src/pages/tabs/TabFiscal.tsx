@@ -98,6 +98,7 @@ export function TabFiscal({ calcData, nominas, canEdit, onChanged }: any) {
               const depFiscal = depFiscalDe(e, c);
               const corregido = corregidoDe(e, c);
               const tiene = esCorregido(e);
+              const puroEf = tiene && corregido <= 0; // dep. corregido en 0 → todo efectivo (sin vales ni banco)
               const septimoFactor = septimoFactorDe(e, c);
               const septimoCorr = esSeptimoCorr(e);
               const septimoMonto = (c.dBase || 0) * septimoFactor;
@@ -156,8 +157,8 @@ export function TabFiscal({ calcData, nominas, canEdit, onChanged }: any) {
                       </td>
                     </>
                   )}
-                  <td className="right mono orange">{sinImss ? '—' : fmt(vales)}</td>
-                  <td className="right mono orange">{sinImss ? '—' : fmt(corregido - vales)}</td>
+                  <td className="right mono orange">{sinImss ? '—' : fmt(puroEf ? 0 : vales)}</td>
+                  <td className="right mono orange">{sinImss ? '—' : fmt(puroEf ? 0 : (corregido - vales))}</td>
                 </tr>
               );
             })}
