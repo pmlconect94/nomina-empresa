@@ -126,7 +126,7 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   const primaFiscal = diasV > 0 ? dDF * diasV * 0.25 : 0;
   const primaEfectivo = diasV > 0 ? dDR * diasV * 0.25 : 0;
   const incentivos = incentivosViaje || 0;
-  const retardoMonto = totalRetHrs * (dBase / 8); // por hora (jornada 8h), no salario diario completo
+  const retardoMonto = totalRetHrs * (dDR / 8); // SIEMPRE sobre el sueldo REAL (aunque el switch sea Fiscal); por hora (jornada 8h)
   const prestDesc = descuentoPrestamo || 0;
 
   const totalPerc = asistMonto + septimo + te + teRetro + incentivos + (bono || 0) + (retroactivo || 0)
