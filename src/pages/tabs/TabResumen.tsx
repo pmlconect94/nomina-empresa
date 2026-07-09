@@ -102,7 +102,9 @@ function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
             <Linea label={c.puroEfectivo ? 'Efectivo (todo · dep. corregido en 0)' : 'Efectivo'} value={c.efectivo} bold />
           ) : c.modeloMarlin ? (
             <>
-              <Linea label="Depósito (banco + vales)" value={c.depositoCorregido} bold red={c.tieneCorregido} />
+              <Linea label="Depósito total (banco + vales)" value={c.depositoCorregido} bold red={c.tieneCorregido} />
+              <Linea label="Depósito a banco" value={c.depositoBanco} />
+              <Linea label="Vales de despensa" value={c.valesPago} />
               <Linea label="Efectivo" value={c.efectivo} bold />
             </>
           ) : (
