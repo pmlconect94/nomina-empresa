@@ -27,9 +27,10 @@ export const EMPRESAS: Empresa[] = [
   {
     code: 'MARLIN',
     nombre: 'Marlin Lizárraga',
-    razonSocial: 'Marlin Lizárraga', // TODO: razón social exacta de Marlin
+    razonSocial: 'Marlin Lizarraga, S. de R.L. de C.V.',
     areas: ['Administración', 'Empaque', 'Estilado', 'Fileteado', 'Hornos', 'Inyección', 'Mantenimiento', 'Parrillas', 'Producción', 'Recursos Humanos', 'Salmon', 'Subida de Tambos'],
-    // vales / banorte: pendientes de los datos de Marlin
+    vales: { idCuenta: '27352', producto: 'EASYVALE CHIP' },
+    banorte: { emisora: '61016', cuentaCargo: '0528568240' },
   },
 ];
 
