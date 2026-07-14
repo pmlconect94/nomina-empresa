@@ -91,6 +91,11 @@ function ReciboModal({ d, onClose }: { d: any; onClose: () => void }) {
               <Linea label="Sueldo fiscal del periodo" value={c.sueldoFiscalPeriodo} />
               <Linea label="Previsión social (prorrateada)" value={c.prevSocial} />
               <Linea label="Vales de despensa (prorrateados)" value={c.vales} />
+              <Linea label="Infonavit" value={c.infonavit} neg />
+              <Linea label="Comedor" value={c.comedor} neg />
+              <Linea label={`Retardos (${(c.totalRetHrs || 0).toFixed(2)}h)`} value={c.retardoMonto} neg />
+              <Linea label="Préstamos" value={c.prestDesc} neg />
+              <Linea label="Descuento de producto" value={c.descuentoProducto} neg />
               <Linea label="ISR" value={c.isr} neg />
               <Linea label="IMSS" value={c.imss} neg />
               <Linea label="Depósito fiscal (calculado)" value={c.depositoFiscal} bold />
