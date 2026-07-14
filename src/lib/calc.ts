@@ -91,16 +91,20 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
 
   const asistMonto = diasCuentan * dBase;
   // Descansos pagados según el esquema y la EMPRESA (días de descanso por día trabajado):
+  //  - QUINCENAL (PML y MARLIN IGUAL): 13 trabajo + 2 descanso = 15 → factor 2/13.
   //  - PML semanal:    6 trabajo + 1 descanso  → factor 1/6.
-  //  - PML quincenal:  13 trabajo + 2 descanso → factor 2/13.
-  //  - MARLIN 5+2:     5 trabajo + 2 descanso  → factor 2/5 (default).
-  //  - MARLIN 6+1:     6 trabajo + 1 descanso  → factor 1/6 (empleado.dias_trabajo = 6).
-  const descansoFactor = empleado?.empresa === 'MARLIN'
-    ? (Number(empleado?.dias_trabajo) === 6 ? (1 / 6) : (2 / 5))
-    : (tipo === 'quincenal' ? (2 / 13) : (1 / 6));
-  // FACTOR del séptimo (días de descanso pagados) = días que cuentan × factor de descanso.
-  // Ej. jornada 6+1, 1 falta → 5 × 1/6 = 0.8333.
-  const septimoDiasCalc = diasCuentan * descansoFactor;
+  //  - MARLIN semanal 5+2: 5 trabajo + 2 descanso → factor 2/5 (default).
+  //  - MARLIN semanal 6+1: 6 trabajo + 1 descanso → factor 1/6 (empleado.dias_trabajo = 6).
+  const descansoFactor = tipo === 'quincenal'
+    ? (2 / 13)
+    : (empleado?.empresa === 'MARLIN'
+        ? (Number(empleado?.dias_trabajo) === 6 ? (1 / 6) : (2 / 5))
+        : (1 / 6));
+  // FACTOR del séptimo (días de descanso pagados) = días que cuentan × factor de descanso,
+  // TOPADO para que (asistencia + séptimo) nunca pase los días del periodo (7 semana / 15 quincena).
+  // Así, si alguien trabajó más días de su jornada (p. ej. en su descanso), el séptimo no infla el pago.
+  // Ej. quincena, 14 días trabajados → 14×2/13=2.15, pero topado a 15−14=1 → total 15 días.
+  const septimoDiasCalc = Math.max(0, Math.min(diasCuentan * descansoFactor, divisorPeriodo - diasCuentan));
   // El séptimo se puede corregir a mano en Fiscal: se captura el FACTOR (días), no el monto.
   const tieneSeptimoCorr = nomina?.septimo_corregido !== null && nomina?.septimo_corregido !== undefined && nomina?.septimo_corregido !== '';
   const septimoDias = tieneSeptimoCorr ? parseFloat(nomina.septimo_corregido) : septimoDiasCalc; // factor usado
