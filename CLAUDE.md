@@ -740,4 +740,17 @@ dispersión (banco / vales / efectivo), bitácora de incidencias por empleado.
 - **Pendiente (sin subir aún a GitHub):** TODO el bloque Marlin de arriba está **solo en local**;
   falta commit+push a `main` (auto-deploy Vercel) cuando el usuario confirme.
 
+### 2026-07-15 — MARLIN: el comedor sale del depósito fiscal (cae al efectivo)
+- **Regla nueva (validada con RH):** el **comedor** se sigue descontando del **neto/general**,
+  pero **ya NO se resta del DEPÓSITO fiscal**. Efecto: el depósito al banco **sube** por el monto
+  del comedor y el efectivo **baja** lo mismo → **se compensa** (el neto total no cambia). El comedor
+  es un consumo interno, no debe bajar lo que se deposita/timbra; sale del efectivo que recibe el empleado.
+- **`calc.ts`:** nuevo `dedDeposito = dedTotalesFiscal − comedor`; `depositoFiscal` usa `dedDeposito`
+  en vez de `dedTotalesFiscal`. El **neto** sigue restando el comedor (via `totalDed` en Real y
+  `dedTotalesFiscal` en Fiscal), sin cambio. Aplica a Marlin en **ambos switches** (Real y Fiscal).
+- **`TabResumen.tsx`:** en el bloque "Parte fiscal (no afecta el neto)" se quitó la línea **Comedor**
+  (ya no forma parte del depósito, así el total cuadra) + nota: "El comedor NO se resta del depósito;
+  se descuenta del efectivo". El comedor sigue en Deducciones del neto y en la tabla del Resumen.
+- Commit `1bd2702`, prod `index-DnicR6yp.js`. (Alias corto reasignado a mano, como siempre.)
+
 <!-- Ir agregando aquí cada modificación nueva: fecha — qué se cambió y por qué. -->
