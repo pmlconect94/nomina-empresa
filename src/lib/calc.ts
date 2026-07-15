@@ -143,8 +143,12 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   // --- Parte fiscal ---
   const isr = parseFloat(nomina?.isr || 0);
   const imss = parseFloat(nomina?.imss || 0);
-  // Todas las deducciones (las del neto + ISR e IMSS) para el depósito fiscal.
+  // Todas las deducciones (las del neto + ISR e IMSS). Sirve para el NETO (modelo fiscal).
   const dedTotalesFiscal = totalDed + isr + imss;
+  // MARLIN: el COMEDOR se descuenta del NETO/general pero NO del DEPÓSITO fiscal → cae al EFECTIVO.
+  // Así el depósito al banco NO absorbe el comedor (sube por ese monto) y el efectivo baja lo mismo:
+  // se compensa (neto total no cambia). El resto de deducciones sí bajan el depósito.
+  const dedDeposito = dedTotalesFiscal - comedor;
 
   // NETO A PAGAR — depende del SWITCH (Marlin) / empresa:
   //  - Modo PML / Marlin REAL: percepciones − deducciones (vales/previsión y ISR/IMSS NO entran al
@@ -165,7 +169,7 @@ export function calcularNomina(empleado: any, nomina: any, asistencias: any[], i
   //    fiscales), así BAJA con las faltas y NO usa el real → el efectivo absorbe la diferencia real−fiscal.
   //  - PML / Marlin sin Alta IMSS: usa el sueldo fiscal del periodo COMPLETO (las faltas no lo reducen).
   const sueldoDeposito = usaFiscalBase ? (asistMontoFiscal + septimoFiscal) : sueldoFiscalPeriodo;
-  const depositoFiscal = altaImss ? (sueldoDeposito + vales + prevSocial - dedTotalesFiscal) : 0;
+  const depositoFiscal = altaImss ? (sueldoDeposito + vales + prevSocial - dedDeposito) : 0;
   // DEPÓSITO CORREGIDO: si se capturó un valor manual se usa ese; si no, el fiscal calculado.
   const tieneCorregido = nomina?.deposito_corregido !== null && nomina?.deposito_corregido !== undefined && nomina?.deposito_corregido !== '';
   const depositoCorregido = altaImss ? (tieneCorregido ? parseFloat(nomina.deposito_corregido) : depositoFiscal) : 0;
